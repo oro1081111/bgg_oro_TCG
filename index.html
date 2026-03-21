@@ -45,7 +45,7 @@
             flex: 1;
             overflow-y: auto;
             display: none;
-            padding-bottom: 20px;
+            padding-bottom: 100px;
         }
 
         .view.active {
@@ -1358,9 +1358,8 @@
             setTimeout(function() { try { inputEl.focus(); inputEl.select(); } catch (e) {} }, 30);
         }
 
-        systemModalConfirmHandler = function() {
-            const value = inputEl ? inputEl.value : '';
-            if (typeof onSubmit === 'function') onSubmit(value);
+        systemModalConfirmHandler = function(val) {
+            if (typeof onSubmit === 'function') onSubmit(val);
         };
     }
 
@@ -1384,11 +1383,11 @@
         const inputEl = document.getElementById('system-modal-input');
         if (btn) btn.addEventListener('click', function(e) {
             e.stopPropagation();
-            // If confirm handler exists, treat this click as "confirm"
             if (systemModalConfirmHandler) {
                 const fn = systemModalConfirmHandler;
+                const val = inputEl ? inputEl.value : ''; // Capture value BEFORE closing and clearing
                 closeSystemModal();
-                try { fn(); } catch (err) { console.error(err); }
+                try { fn(val); } catch (err) { console.error(err); }
                 return;
             }
             closeSystemModal();
