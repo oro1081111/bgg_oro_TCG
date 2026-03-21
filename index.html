@@ -1526,7 +1526,7 @@
                 var card = CARD_POOL.find(function(c) { return c.id === id; });
                 if (!card) return '';
                 return (
-                    '<div class="w-[140px] flex-shrink-0 snap-center">' + createCardHTML(card, true) + '</div>'
+                    '<div class="w-[140px] flex-shrink-0 snap-center cursor-pointer" onclick="showCardDetails(' + card.id + ')">' + createCardHTML(card, true) + '</div>'
                 );
             }).join('');
             favEl.innerHTML = favHtml;
@@ -1547,10 +1547,8 @@
             state.playerParams.name,
             function(newName) {
                 const val = (newName || '').trim();
-                if (!val) {
-                    showSystemModal('名稱不能為空白。', '提示', '⚠️');
-                    return;
-                }
+                if (!val) return; // 如果未填寫，視為不修改，直接返回
+                
                 state.playerParams.name = val;
                 saveState();
                 updateHomeView();
