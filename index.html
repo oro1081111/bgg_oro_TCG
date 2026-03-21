@@ -1,0 +1,2702 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pocket Monster TCG</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Anton&display=swap" rel="stylesheet">
+    <script src="cards.js"></script>
+    <style>
+        :root {
+            --card-bg: linear-gradient(135deg, #1e293b, #0f172a);
+            --rarity-ur: #f1c40f;
+            --rarity-ssr: #ef4444;
+            --rarity-sr: #a855f7;
+            --rarity-r: #3b82f6;
+            --rarity-uc: #22c55e;
+            --rarity-c: #94a3b8;
+        }
+
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            margin: 0;
+            user-select: none;
+        }
+
+        /* Mobile Container */
+        #app {
+            max-width: 430px;
+            margin: 0 auto;
+            height: 100%;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            background: radial-gradient(circle at top, #1e293b, #0f172a);
+        }
+
+        /* Views */
+        .view {
+            flex: 1;
+            overflow-y: auto;
+            display: none;
+            padding-bottom: 20px;
+        }
+
+        .view.active {
+            display: block;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes slideInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes newBadgePop {
+            0% { transform: scale(0) rotate(-10deg); opacity: 0; }
+            70% { transform: scale(1.2) rotate(-10deg); }
+            100% { transform: scale(1) rotate(-10deg); opacity: 1; }
+        }
+
+        .new-badge {
+            position: absolute;
+            top: -15px;
+            right: -15px;
+            background: linear-gradient(135deg, #ef4444, #f97316);
+            color: white;
+            font-family: 'Anton', sans-serif;
+            font-size: 24px;
+            font-style: italic;
+            padding: 4px 12px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.6), inset 0 2px 0 rgba(255,255,255,0.4);
+            border: 2px solid white;
+            z-index: 50;
+            animation: newBadgePop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        /* SSR/UR Reveal Effects */
+        .reveal-effect-UR { box-shadow: 0 0 100px #facc15; animation: shake-heavy 0.5s ease-in-out; }
+        .reveal-effect-SSR { box-shadow: 0 0 80px #a855f7; animation: shake 0.3s ease-in-out; }
+        .reveal-effect-SR { box-shadow: 0 0 50px #38bdf8; }
+
+        /* Top Navigation - Flat Design */
+        nav {
+            top: 0;
+            width: 100%;
+            height: 50px;
+            background: #0f172a;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            z-index: 50;
+            flex-shrink: 0;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 500;
+            color: #64748b;
+            transition: color 0.3s;
+            height: 100%;
+            flex: 1;
+        }
+
+        .nav-item.active {
+            color: #38bdf8;
+            border-bottom: 2px solid #38bdf8;
+        }
+
+        .nav-icon {
+            display: none; /* Hide icons in V2 flat top nav to save space */
+        }
+
+        /* Card Component */
+        .card {
+            width: 100%;
+            aspect-ratio: 2.5/3.5;
+            background: var(--card-bg);
+            border-radius: 12px;
+            position: relative;
+            padding: 4px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            transition: transform 0.3s, box-shadow 0.3s;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card-inner {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            gap: 0px;
+            position: relative;
+            z-index: 10;
+        }
+
+        .card-image-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0.7;
+            z-index: 0;
+            filter: brightness(0.6);
+        }
+
+        .card-content-overlay {
+            position: relative;
+            z-index: 10;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 6px;
+            background: linear-gradient(to bottom, rgba(15, 23, 42, 0.4) 0%, transparent 40%, rgba(15, 23, 42, 0.9) 100%);
+            overflow: hidden; 
+            min-width: 0;
+        }
+
+        .favorite-btn {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            z-index: 40;
+            font-size: 16px;
+            cursor: pointer;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.8));
+            transition: transform 0.2s;
+        }
+        .favorite-btn:active { transform: scale(1.3); }
+
+        .card-header {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-size: 10px;
+            font-weight: bold;
+            line-height: 1.2;
+            text-align: center;
+        }
+
+        .card-name {
+            width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .card-hp {
+            color: #f87171;
+            font-size: 9px;
+        }
+
+        .card-id-badge {
+            position: absolute;
+            bottom: 2px;
+            right: 4px;
+            font-size: 8px;
+            color: rgba(255, 255, 255, 0.5);
+            font-family: monospace;
+            z-index: 20;
+        }
+
+        /* Rarity Borders - No outer glow per request */
+        .card.rarity-UR, .border-UR { border: 3px solid var(--rarity-ur); }
+        .card.rarity-SSR, .border-SSR { border: 3px solid var(--rarity-ssr); }
+        .card.rarity-SR, .border-SR { border: 2.5px solid var(--rarity-sr); }
+        .card.rarity-R, .border-R { border: 2px solid var(--rarity-r); }
+        .card.rarity-UC, .border-UC { border: 2px solid var(--rarity-uc); }
+        .card.rarity-C, .border-C { border: 1.5px solid var(--rarity-c); }
+
+        .rarity-badge {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            font-size: 9px;
+            font-weight: 900;
+            padding: 1px 4px;
+            border-radius: 4px;
+            z-index: 20;
+            text-transform: uppercase;
+        }
+        .rb-UR { background: var(--rarity-ur); color: black; }
+        .rb-SSR { background: var(--rarity-ssr); color: white; }
+        .rb-SR { background: var(--rarity-sr); color: white; }
+        .rb-R { background: var(--rarity-r); color: white; }
+        .rb-UC { background: var(--rarity-uc); color: white; }
+        .rb-C { background: var(--rarity-c); color: black; }
+
+        .card-stats {
+            background: rgba(0,0,0,0.4);
+            border-radius: 4px;
+            padding: 3px;
+            font-size: 10px;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            gap: 1px;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0;
+        }
+
+        .stat-icon {
+            font-size: 10px;
+            margin-bottom: -1px;
+        }
+
+        .stat-value {
+            font-weight: bold;
+        }
+
+        /* Animations */
+        .card.rarity-UR { 
+            border: 3px solid var(--rarity-ur); 
+            z-index: 5;
+        }
+        .card.rarity-SSR { 
+            border: 2.5px solid var(--rarity-ssr); 
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        @keyframes attack-p {
+            0% { transform: translateY(0); }
+            50% { transform: translateY(-30px) scale(1.1); }
+            100% { transform: translateY(0); }
+        }
+
+        @keyframes attack-e {
+            0% { transform: translateY(0); }
+            50% { transform: translateY(30px) scale(1.1); }
+            100% { transform: translateY(0); }
+        }
+
+        @keyframes attack-p-crit {
+            0% { transform: translateY(0) scale(1); }
+            15% { transform: translateY(20px) scale(0.9); }
+            30% { transform: translateY(-80px) scale(1.6) rotate(20deg); filter: brightness(2) contrast(1.5); }
+            45% { transform: translateY(-90px) scale(1.7) rotate(25deg); filter: brightness(2.5) contrast(2); }
+            100% { transform: translateY(0) scale(1); }
+        }
+
+        @keyframes attack-e-crit {
+            0% { transform: translateY(0) scale(1); }
+            15% { transform: translateY(-20px) scale(0.9); }
+            30% { transform: translateY(80px) scale(1.6) rotate(-20deg); filter: brightness(2) contrast(1.5); }
+            45% { transform: translateY(90px) scale(1.7) rotate(-25deg); filter: brightness(2.5) contrast(2); }
+            100% { transform: translateY(0) scale(1); }
+        }
+
+        @keyframes damage-float {
+            0% { transform: translateY(0) scale(0.5); opacity: 0; }
+            20% { transform: translateY(-20px) scale(1.2); opacity: 1; }
+            80% { transform: translateY(-40px) scale(1); opacity: 1; }
+            100% { transform: translateY(-60px) scale(0.8); opacity: 0; }
+        }
+
+        @keyframes crit-text-pop {
+            0% { transform: scale(0.5) rotate(-10deg); opacity: 0; }
+            50% { transform: scale(1.5) rotate(10deg); opacity: 1; filter: drop-shadow(0 0 10px #facc15); }
+            100% { transform: scale(1) rotate(0deg); opacity: 0; }
+        }
+
+        .damage-popup {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-weight: 900;
+            font-size: 32px;
+            color: #ef4444;
+            text-shadow: 2px 2px 0 #000, 0 0 10px rgba(0,0,0,0.5);
+            pointer-events: none;
+            z-index: 50;
+            animation: damage-float 0.8s ease-out forwards;
+            white-space: nowrap;
+        }
+
+        .damage-popup.crit {
+            color: #facc15;
+            font-size: 48px;
+            text-shadow: 3px 3px 0 #000, 0 0 20px rgba(250, 204, 21, 0.8);
+        }
+
+        .crit-label {
+            position: absolute;
+            top: 20%;
+            left: 50%;
+            transform: translateX(-50%);
+            font-family: 'Anton', sans-serif;
+            font-size: 40px;
+            color: #facc15;
+            text-transform: uppercase;
+            font-style: italic;
+            z-index: 60;
+            pointer-events: none;
+            text-shadow: 0 0 10px rgba(0,0,0,0.8), 2px 2px 0 #000;
+            animation: crit-text-pop 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        @keyframes shake-heavy {
+            0%, 100% { transform: translateX(0); }
+            10% { transform: translateX(-8px) rotate(-2deg); }
+            20% { transform: translateX(8px) rotate(2deg); }
+            30% { transform: translateX(-8px) rotate(-2deg); }
+            40% { transform: translateX(8px) rotate(2deg); }
+            50% { transform: translateX(-8px) rotate(-2deg); }
+            60% { transform: translateX(8px) rotate(2deg); }
+        }
+
+        .animate-shake-heavy { animation: shake-heavy 0.4s ease-in-out; }
+
+        .animate-shake { animation: shake 0.2s ease-in-out; }
+        .animate-attack-p { animation: attack-p 0.4s ease-in-out; }
+        .animate-attack-e { animation: attack-e 0.4s ease-in-out; }
+        .animate-attack-p-crit { animation: attack-p-crit 0.5s ease-out; }
+        .animate-attack-e-crit { animation: attack-e-crit 0.5s ease-out; }
+
+        /* HP Bar */
+        .hp-bar-container {
+            width: 100%;
+            height: 6px;
+            background: #334155;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 4px;
+        }
+
+        .hp-bar-fill {
+            height: 100%;
+            background: #22c55e;
+            transition: width 0.3s ease-out, background-color 0.3s;
+        }
+
+        .hp-bar-fill.warning { background: #eab308; }
+        .hp-bar-fill.danger { background: #ef4444; }
+
+        /* Battle UI Adjustments */
+        #battle-arena {
+            padding-bottom: 72px;
+        }
+
+        .active-card-wrapper {
+            position: relative;
+            width: 110px;
+            transition: all 0.3s;
+        }
+
+        .hp-display {
+            position: absolute;
+            top: -25px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            font-weight: bold;
+            font-size: 14px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* Gacha Styles */
+        .pack-container {
+            perspective: 1000px;
+            height: 400px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .pack {
+            width: 200px;
+            height: 300px;
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            border-radius: 15px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 40px;
+            cursor: pointer;
+            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            border: 4px solid rgba(255,255,255,0.2);
+            position: relative;
+        }
+
+        .pack:active {
+            transform: scale(0.95);
+        }
+
+        .pack.opened {
+            transform: scale(0) rotate(180deg);
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .pack-glow {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 15px;
+            box-shadow: 0 0 30px #3b82f6;
+            opacity: 0.5;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 0.5; }
+            50% { transform: scale(1.05); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 0.5; }
+        }
+
+        /* Reveal Overlay */
+        #reveal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.95);
+            z-index: 100;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .reveal-card-container {
+            width: 280px;
+            aspect-ratio: 2.5/3.5;
+            perspective: 1000px;
+        }
+
+        .reveal-card {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            transform: scale(0.5);
+            opacity: 0;
+        }
+
+        .reveal-card.flipped {
+            transform: scale(1);
+            opacity: 1;
+        }
+
+        .reveal-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 15px;
+        }
+
+        .reveal-back {
+            background: linear-gradient(135deg, #1e293b, #0f172a);
+            border: 4px solid #3b82f6;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 60px;
+        }
+
+        .reveal-front {
+            /* V2 no longer flips the front, it's just the exact view */
+            transform: none;
+            backface-visibility: hidden;
+        }
+
+        /* Battle UI */
+        .battle-hand {
+            display: flex;
+            gap: 6px;
+            overflow-x: auto;
+            padding: 8px 0;
+            scrollbar-width: none;
+            justify-content: center;
+        }
+
+        .battle-hand::-webkit-scrollbar { display: none; }
+
+        .hand-card {
+            min-width: 82px;
+            max-width: 82px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .hand-card.selected {
+            border-color: #38bdf8;
+            transform: translateY(-10px);
+            box-shadow: 0 0 15px #38bdf8;
+        }
+
+        /* Round Result Overlay */
+        #round-result-display {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 20px;
+            border-radius: 20px;
+            border: 2px solid #38bdf8;
+            text-align: center;
+            z-index: 40;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            box-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
+            min-width: 200px;
+        }
+
+        #round-result-display.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* Collection Grid */
+        .collection-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+            padding: 10px;
+        }
+
+        .deck-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #38bdf8;
+            color: white;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 10px;
+            z-index: 10;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.2);
+            border-radius: 10px;
+        }
+
+        /* Card Details Modal Redesign */
+        #card-details-modal {
+            background: rgba(15, 23, 42, 0.82);
+            backdrop-filter: blur(12px);
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            z-index: 300;
+        }
+
+        #card-details-modal .modal-container {
+            background: #1e293b;
+            width: 100%;
+            max-width: 380px;
+            max-height: 85vh;
+            border-radius: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            animation: modalPop 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes modalPop {
+            from { transform: scale(0.9) translateY(10px); opacity: 0; }
+            to { transform: scale(1) translateY(0); opacity: 1; }
+        }
+
+        /* Rules View Styling */
+        .rules-content {
+            padding: 24px;
+            color: #cbd5e1;
+            line-height: 1.8;
+            max-width: 430px;
+            margin: 0 auto;
+        }
+
+        .rules-section {
+            background: rgba(30, 41, 59, 0.5);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .rules-title {
+            color: #38bdf8;
+            font-weight: bold;
+            font-size: 1.1rem;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .rules-title span {
+            background: #38bdf8;
+            color: #0f172a;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+
+<div id="app">
+    <!-- Top Navigation -->
+    <nav class="flex justify-around items-center bg-slate-800 p-2 shadow-lg sticky top-0 z-50">
+        <div class="nav-item active" data-view="home" onclick="switchView('home')">首頁</div>
+        <div class="nav-item" data-view="gacha" onclick="switchView('gacha')">抽卡</div>
+        <div class="nav-item" data-view="collection" onclick="switchView('collection')">收藏</div>
+        <div class="nav-item" data-view="deck" onclick="switchView('deck')">牌庫</div>
+        <div class="nav-item" data-view="battle" onclick="switchView('battle')">對戰</div>
+        <div class="nav-item" data-view="achievement" onclick="switchView('achievement')">成就</div>
+    </nav>
+    <div id="data-loading-status" class="bg-blue-600/80 text-white text-[10px] text-center py-1 font-bold animate-pulse">
+        ⏳ 正在載入卡片資料中...
+    </div>
+
+    <!-- Home View -->
+    <div id="view-home" class="view active">
+        <div class="px-4 py-6 relative">
+            <!-- Small reset button (top-right) -->
+            <button onclick="requestResetSave()" class="absolute top-2 right-3 text-[10px] text-slate-400 hover:text-white bg-slate-900/50 border border-slate-700 rounded-md px-2 py-1">
+                重置存檔
+            </button>
+            <!-- Player Info -->
+            <div class="bg-slate-800 rounded-xl p-4 mb-4 shadow-lg border border-slate-700 flex justify-between items-center">
+                <div>
+                    <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                        <span id="player-name">Guest</span>
+                        <span class="text-xs text-slate-400 cursor-pointer" onclick="editPlayerName()">✏️</span>
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-1">加入時間: <span id="player-join-date">2026/03/09</span></p>
+                </div>
+                <div class="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-xl shadow-inner">👤</div>
+            </div>
+
+            <!-- Stats Grid -->
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <!-- Battle Stats -->
+                <div class="bg-gradient-to-br from-red-900 to-red-700 rounded-xl p-4 shadow-lg cursor-pointer hover:scale-[1.02] transition-transform" onclick="switchView('battle')">
+                    <div class="text-xs text-red-200 mb-1">⚔️ 對戰戰績</div>
+                    <div class="text-3xl font-black text-white drop-shadow-md" id="home-win-rate">0%</div>
+                    <div class="text-xs text-red-200 mt-1"><span id="home-wins">0</span> 勝 / <span id="home-total-battles">0</span> 場</div>
+                </div>
+
+                <!-- Gacha Packs -->
+                <div class="bg-gradient-to-br from-blue-900 to-blue-700 rounded-xl p-4 shadow-lg cursor-pointer hover:scale-[1.02] transition-transform flex flex-col justify-between" onclick="switchView('gacha')">
+                    <div class="text-xs text-blue-200 mb-1">🎁 可用卡包</div>
+                    <div class="text-3xl font-black text-white text-center drop-shadow-md pb-1" id="home-packs-count">8 / 8</div>
+                    <div class="text-xs text-center bg-black/20 rounded py-1 text-blue-100 font-bold">前往抽卡</div>
+                </div>
+                
+                <!-- Collection Stats -->
+                <div class="col-span-2 bg-gradient-to-br from-purple-900 to-slate-800 border border-purple-500/30 rounded-xl p-4 shadow-lg cursor-pointer hover:scale-[1.02] transition-transform flex justify-between items-center" onclick="switchView('collection')">
+                    <div>
+                        <div class="text-xs text-purple-200 mb-1">🗂️ 收集進度</div>
+                        <div class="text-2xl font-black text-white"><span id="home-collection-count">0</span> <span class="text-sm font-normal text-purple-300">/ 14471</span></div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-xs text-purple-200 mb-1">👑 UR 張數</div>
+                        <div class="text-xl font-bold text-yellow-400 drop-shadow-[0_0_5px_rgba(250,204,21,0.5)]" id="home-ur-count">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Favorites Carousel -->
+            <div class="mt-8">
+                <h3 class="font-bold text-white mb-3 text-sm border-l-4 border-yellow-400 pl-2">⭐ 我的最愛展示</h3>
+                <div id="home-favorites-carousel" class="flex gap-4 overflow-x-auto pb-4 snap-x relative h-[250px] items-center">
+                    <div class="text-slate-500 text-sm w-full text-center py-10 border-2 border-dashed border-slate-700 rounded-xl">
+                        尚未設定我的最愛卡牌，請前往收藏頁面設定。
+                    </div>
+                </div>
+            </div>
+
+            <!-- About button (bottom) -->
+            <div class="mt-10 px-2">
+                <button onclick="switchView('about')" class="w-full py-4 bg-slate-800 hover:bg-slate-700 rounded-xl font-bold text-white shadow-lg transition-all active:scale-95 border border-slate-600">
+                    ℹ️ 關於遊戲
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Gacha View -->
+    <div id="view-gacha" class="view">
+        <div class="p-6 text-center">
+            <h1 class="text-3xl font-bold text-white mb-2 drop-shadow-md">抽卡中心</h1>
+            <p class="text-blue-300 text-sm font-bold bg-blue-900/50 inline-block px-4 py-1 rounded-full border border-blue-500/30">
+                今日可用卡包：<span id="gacha-packs-display">8 / 8</span>
+            </p>
+        </div>
+        
+        <div class="pack-container relative h-[400px] mt-4 flex justify-center items-center">
+            <div class="pack" id="card-pack">
+                <div class="pack-glow"></div>
+                <div class="text-center font-black drop-shadow-lg text-white">
+                    <div class="text-5xl">BGG</div>
+                    <div class="text-xl tracking-widest text-blue-200 mt-2">TCG</div>
+                </div>
+            </div>
+            <p class="text-slate-400 text-sm absolute bottom-6 w-full text-center animate-pulse pointer-events-none">✨ 點擊卡包開啟 ✨</p>
+        </div>
+    </div>
+
+    <!-- Collection View -->
+    <div id="view-collection" class="view">
+        <div class="p-4 z-40 border-b border-slate-700">
+            <div class="flex justify-between items-center mb-3">
+                <h1 class="text-xl font-bold text-white">我的收藏</h1>
+                <div class="text-[10px] font-bold text-purple-300 bg-purple-900/50 px-3 py-1 rounded-full border border-purple-500/30">
+                    進度：<span id="collection-progress">0</span> / 14471
+                </div>
+            </div>
+            
+            <div class="flex gap-2 mb-3 overflow-x-auto text-[10px] pb-1 snap-x scrollbar-hide">
+                <div class="flex-shrink-0 px-2 py-1 bg-slate-800 rounded border border-yellow-400"><span class="text-yellow-400 font-bold">UR</span> <span id="col-count-UR" class="text-white">0</span></div>
+                <div class="flex-shrink-0 px-2 py-1 bg-slate-800 rounded border border-red-500"><span class="text-red-500 font-bold">SSR</span> <span id="col-count-SSR" class="text-white">0</span></div>
+                <div class="flex-shrink-0 px-2 py-1 bg-slate-800 rounded border border-purple-500"><span class="text-purple-500 font-bold">SR</span> <span id="col-count-SR" class="text-white">0</span></div>
+                <div class="flex-shrink-0 px-2 py-1 bg-slate-800 rounded border border-blue-400"><span class="text-blue-400 font-bold">R</span> <span id="col-count-R" class="text-white">0</span></div>
+                <div class="flex-shrink-0 px-2 py-1 bg-slate-800 rounded border border-green-500"><span class="text-green-500 font-bold">UC</span> <span id="col-count-UC" class="text-white">0</span></div>
+                <div class="flex-shrink-0 px-2 py-1 bg-slate-800 rounded border border-slate-400"><span class="text-slate-400 font-bold">C</span> <span id="col-count-C" class="text-white">0</span></div>
+            </div>
+
+            <div class="flex justify-between items-center">
+                <select id="sort-select" class="bg-slate-800 text-xs border border-slate-700 rounded px-2 py-2 outline-none w-full text-white shadow-inner">
+                    <option value="id">按稀有度 (BGG排名) 排序</option>
+                    <option value="hp">按 HP 排序</option>
+                    <option value="atk">按攻擊排序</option>
+                    <option value="spd">按速度 (由小到大)</option>
+                    <option value="discard">按棄牌值排序</option>
+                    <option value="critRate">按爆集率排序</option>
+                    <option value="favorite">⭐ 優先顯示我的最愛</option>
+                </select>
+            </div>
+        </div>
+        
+        <div id="collection-list" class="collection-grid mt-2">
+            <!-- Cards will be injected here -->
+        </div>
+    </div>
+
+    <!-- Deck View -->
+    <div id="view-deck" class="view">
+        <!-- 牌庫列表 -->
+        <div id="deck-list-layer" class="p-4 h-full flex flex-col">
+            <div class="flex justify-between items-center mb-4">
+                <h1 class="text-xl font-bold text-white">我的牌庫</h1>
+                <button onclick="openDeckBuilder()" class="px-4 py-2 bg-blue-600 rounded-lg text-white font-bold text-sm">＋ 建立新牌庫</button>
+            </div>
+            <div id="decks-container" class="space-y-4 flex-1 overflow-y-auto"></div>
+        </div>
+
+        <!-- 牌庫編輯器 -->
+        <div id="deck-builder-layer" class="hidden p-4 h-full flex-col absolute top-0 w-full bg-[#0f172a] z-50">
+            <div class="flex justify-between items-center mb-2">
+                <button onclick="cancelDeckBuilder()" class="text-slate-400 font-bold">取消</button>
+                <input id="builder-deck-name" type="text" class="bg-slate-800 text-white px-2 py-1 rounded text-center w-32 outline-none" placeholder="牌庫名稱">
+                <button id="btn-save-deck" onclick="saveDeckBuilder()" class="text-green-400 font-bold opacity-50 cursor-not-allowed">儲存</button>
+            </div>
+            <div class="flex justify-between bg-slate-900 rounded p-2 text-xs mb-2">
+                <div class="text-center"><span class="block text-slate-500">已選</span><span id="builder-count" class="font-bold text-white">0/10</span></div>
+                <div class="text-center"><span class="block text-slate-500">均 HP</span><span id="avg-hp" class="font-bold text-green-400">0</span></div>
+                <div class="text-center"><span class="block text-slate-500">均 ATK</span><span id="avg-atk" class="font-bold text-red-400">0</span></div>
+                <div class="text-center"><span class="block text-slate-500">均 SPD</span><span id="avg-spd" class="font-bold text-yellow-400">0</span></div>
+                <div class="text-center"><span class="block text-slate-500">均 DIS</span><span id="avg-discard" class="font-bold text-purple-400">0</span></div>
+            </div>
+            <select id="builder-sort" class="w-full bg-slate-800 p-2 mb-2 rounded text-white text-xs">
+                <option value="id">依 ID 排序</option>
+                <option value="hp">依 HP 排序</option>
+                <option value="atk">依 攻擊力 排序</option>
+                <option value="spd">依 速度 排序</option>
+            </select>
+            <div id="builder-collection-list" class="collection-grid flex-1 overflow-y-auto pb-10"></div>
+        </div>
+    </div>
+
+    <!-- Achievement View -->
+    <div id="view-achievement" class="view">
+        <div class="p-6 text-center text-slate-400">
+            <h2 class="text-2xl font-bold mb-4">成就系統</h2>
+            <p>敬請期待未來更新...</p>
+        </div>
+    </div>
+
+    <!-- Battle View -->
+    <div id="view-battle" class="view">
+        <!-- Layer 1: Lobby -->
+        <div id="battle-lobby-layer" class="p-6 h-full flex flex-col gap-4 max-w-md mx-auto mt-6">
+            <div class="text-6xl text-center mb-2">⚔️</div>
+            <h1 class="text-3xl font-bold text-center text-white mb-6 drop-shadow-md">對戰大廳</h1>
+            <button onclick="switchView('rules')" class="w-full py-4 bg-slate-800 hover:bg-slate-700 rounded-xl font-bold text-lg text-white shadow-lg border border-slate-600 transition-all active:scale-95 text-center">
+                📜 對戰規則
+            </button>
+            <button onclick="openBattleDeckSelection()" class="w-full py-4 bg-red-700 hover:bg-red-600 rounded-xl font-bold text-xl text-white shadow-[0_0_15px_rgba(220,38,38,0.5)] transition-all active:scale-95 text-center">
+                🤖 電腦隨機對戰
+            </button>
+            <button onclick="openBattleDeckSelection('advanced')" class="w-full py-4 bg-purple-700 hover:bg-purple-600 rounded-xl font-bold text-xl text-white shadow-[0_0_15px_rgba(168,85,247,0.45)] transition-all active:scale-95 text-center">
+                🧠 進階模式
+            </button>
+            <button onclick="showSystemModal('連線對戰模式開發中，敬請期待！', '尚未開放', '🌐')" class="w-full py-4 bg-slate-800/50 rounded-xl font-bold text-lg text-slate-500 border border-slate-700 cursor-not-allowed text-center mt-6">
+                🌐 連線對戰 (未解鎖)
+            </button>
+            <button onclick="showSystemModal('闖關模式開發中，敬請期待！', '尚未開放', '🗺️')" class="w-full py-4 bg-slate-800/50 rounded-xl font-bold text-lg text-slate-500 border border-slate-700 cursor-not-allowed text-center">
+                🗺️ 闖關模式 (未解鎖)
+            </button>
+        </div>
+
+        <!-- Layer 2: Deck Selection -->
+        <div id="battle-deck-select-layer" class="hidden p-6 h-full flex-col mt-4">
+            <div class="flex items-center mb-6">
+                <button onclick="closeBattleDeckSelection()" class="text-lg font-bold text-slate-400 hover:text-white mr-4 transition-colors">◀ 返回</button>
+                <h2 class="text-2xl font-bold text-white drop-shadow-md">選擇出戰牌庫</h2>
+            </div>
+            
+            <div id="battle-decks-container" class="space-y-4 flex-1 overflow-y-auto pb-10">
+                <!-- Selectable decks injected here -->
+            </div>
+        </div>
+
+        <!-- Layer 3: Battle Arena -->
+        <div id="battle-arena" class="hidden flex-col h-full p-4 absolute top-0 w-full bg-[#0f172a] z-50" style="min-height: 100vh;">
+            <!-- Enemy Side -->
+            <div class="flex justify-between items-center mb-1">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 bg-red-900/50 border border-red-500/50 rounded-full flex items-center justify-center text-lg shadow-inner">🤖</div>
+                    <div>
+                        <div class="text-sm font-bold text-white">電腦</div>
+                        <div class="text-[10px] text-slate-400">牌庫: <span id="enemy-deck-count" class="font-bold text-white">0</span> | 手牌: <span id="enemy-hand-count" class="font-bold text-white">0</span></div>
+                    </div>
+                </div>
+                <div class="flex gap-2 items-center">
+                    <div id="turn-indicator" class="text-xs bg-slate-700 px-3 py-1 rounded-full font-bold border border-slate-600 shadow-inner">回合 1</div>
+                    <button onclick="exitBattle()" class="px-3 py-1 bg-slate-800 hover:bg-red-900/50 rounded text-xs text-slate-400 transition-colors">投降</button>
+                </div>
+            </div>
+
+            <!-- Play Area -->
+            <div class="flex-1 flex flex-col justify-center items-center gap-4 relative">
+                <!-- Round Result Display -->
+                <div id="round-result-display">
+                    <div id="round-winner-text" class="text-2xl font-bold text-white mb-2">你贏了！</div>
+                    <div id="round-discard-text" class="text-sm text-slate-300 mb-4">對手棄掉 2 張牌</div>
+                    
+                    <!-- Discard Controls inside display -->
+                    <div id="discard-controls" class="hidden flex flex-col items-center">
+                        <div class="text-xs font-bold text-red-400 mb-3">請選擇棄牌滿足總和<br>(目前: <span id="current-discard-sum">0</span> / <span id="target-discard-sum">0</span>)</div>
+                        <button id="btn-confirm-discard" class="w-full py-3 bg-red-600 hover:bg-red-500 rounded-xl font-bold shadow-lg disabled:opacity-50 transition-all active:scale-95">確認棄牌</button>
+                    </div>
+                </div>
+
+                <div id="enemy-card-wrapper" class="active-card-wrapper">
+                    <div id="enemy-hp-text" class="hp-display text-red-400"></div>
+                    <div id="enemy-active-card" class="w-full aspect-[2.5/3.5] bg-slate-800 rounded-lg border-2 border-dashed border-slate-600 flex items-center justify-center text-slate-500 text-xs">
+                        等待出牌
+                    </div>
+                    <div id="enemy-hp-bar-container" class="hp-bar-container hidden">
+                        <div id="enemy-hp-bar" class="hp-bar-fill" style="width: 100%"></div>
+                    </div>
+                </div>
+                
+                <div class="text-sm font-black text-red-500 italic drop-shadow-lg">VS</div>
+
+                <div id="player-card-wrapper" class="active-card-wrapper">
+                    <div id="player-hp-text" class="hp-display text-green-400"></div>
+                    <div id="player-active-card" class="w-full aspect-[2.5/3.5] bg-slate-800 rounded-lg border-2 border-dashed border-slate-600 flex items-center justify-center text-slate-500 text-xs">
+                        請從手牌選一張
+                    </div>
+                    <div id="player-hp-bar-container" class="hp-bar-container hidden">
+                        <div id="player-hp-bar" class="hp-bar-fill" style="width: 100%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Player Hand -->
+            <div class="mt-auto mb-2">
+                <div class="flex justify-between items-center mb-2">
+                    <div class="text-sm font-bold">你的手牌</div>
+                    <div class="text-xs text-slate-400">牌庫剩餘: <span id="player-deck-count">0</span></div>
+                </div>
+                <div id="player-hand" class="battle-hand">
+                    <!-- Hand cards -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Gacha Reveal Overlay -->
+    <div id="reveal-overlay">
+        <div class="reveal-card-container" id="reveal-clickable-area">
+            <div id="reveal-card-inner" class="reveal-card flipped">
+                <!-- V2: Start flipped so it shows front directly -->
+                <div id="reveal-front-content" class="reveal-front absolute w-full h-full">
+                    <!-- Card content injected here -->
+                </div>
+            </div>
+        </div>
+        <div class="mt-[60px] text-center z-50">
+            <p id="reveal-count" class="text-slate-200 mb-4 font-bold drop-shadow-md">第 1 / 5 張</p>
+            <button id="btn-next-reveal" class="px-8 py-3 bg-white text-black rounded-full font-bold shadow-[0_0_20px_rgba(255,255,255,0.5)] active:scale-95 transition-transform">
+                下一張
+            </button>
+        </div>
+    </div>
+
+
+    <!-- Result Modal -->
+    <div id="result-modal" class="fixed inset-0 bg-black/95 z-[200] hidden flex flex-col items-center justify-center p-10 text-center">
+        <div id="result-emoji" class="text-8xl mb-6">🏆</div>
+        <h2 id="result-title" class="text-4xl font-bold mb-4 drop-shadow-md">你贏了！</h2>
+        <p id="result-desc" class="text-slate-300 mb-10 bg-black/50 p-4 rounded-xl">對手的手牌不足以支付棄牌，你獲得了最終勝利。</p>
+        <button id="btn-close-result" class="px-10 py-4 bg-blue-600 hover:bg-blue-500 active:scale-95 rounded-xl font-bold text-xl shadow-[0_0_20px_rgba(37,99,235,0.5)] transition-all">
+            返回大廳
+        </button>
+    </div>
+
+    <!-- System Modal (for consistent alerts) -->
+    <div id="system-modal" class="fixed inset-0 bg-black/95 z-[250] hidden flex items-center justify-center p-8 text-center">
+        <div class="w-full max-w-[380px] bg-slate-800/90 border border-slate-700 rounded-2xl p-6 shadow-[0_0_40px_rgba(0,0,0,0.6)]" onclick="event.stopPropagation()">
+            <div id="system-modal-emoji" class="text-6xl mb-4">ℹ️</div>
+            <h2 id="system-modal-title" class="text-2xl font-black text-white mb-3">提示</h2>
+            <p id="system-modal-message" class="text-slate-200 text-sm leading-relaxed mb-4">...</p>
+
+            <!-- Optional prompt input (hidden by default) -->
+            <div id="system-modal-input-wrap" class="mb-6 hidden">
+                <input id="system-modal-input" type="text" class="w-full bg-slate-900/70 border border-slate-600 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-blue-400" placeholder="" />
+            </div>
+
+            <div class="flex gap-3">
+                <button id="system-modal-cancel" class="flex-1 py-3 bg-slate-700 hover:bg-slate-600 active:scale-95 rounded-xl font-bold text-white transition-all hidden">
+                    取消
+                </button>
+                <button id="system-modal-close" class="flex-1 py-3 bg-blue-600 hover:bg-blue-500 active:scale-95 rounded-xl font-bold text-white shadow-[0_0_20px_rgba(37,99,235,0.35)] transition-all">
+                    確定
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rules View -->
+    <div id="view-rules" class="view">
+        <div class="rules-content">
+            <h1 class="text-3xl font-bold text-white mb-8 flex items-center gap-3">
+                <span class="text-4xl">📜</span> 遊戲對戰規則
+            </h1>
+
+            <div class="rules-section">
+                <div class="rules-title"><span>1</span> 牌組準備</div>
+                <p>每位玩家需建立一套包含 <span class="text-white font-bold underline decoration-blue-500/50">10 張卡片</span> 的牌庫。在「牌庫」頁面可以自由挑選已擁有的卡片進行編組。</p>
+            </div>
+
+            <div class="rules-section">
+                <div class="rules-title"><span>2</span> 對戰開始</div>
+                <p>開局時，系統會自動將牌庫洗牌。雙方玩家首先抽滿 <span class="text-white font-bold">4 張手牌</span>。</p>
+            </div>
+
+            <div class="rules-section">
+                <div class="rules-title"><span>3</span> 回合流程</div>
+                <p>每回合雙方同時從手牌中選擇一張卡片派出。對戰順序取決於 <span class="text-yellow-400 font-bold">速度 (SPD)</span>：</p>
+                <div class="mt-4 space-y-3 text-sm">
+                    <div class="flex gap-3">
+                        <div class="text-yellow-400 font-bold">⚡</div>
+                        <p><span class="text-white font-bold">先攻判定</span>：數值 <span class="text-yellow-400 font-bold underline">較小</span> 的卡片先發動攻擊（低延遲/輕量級優先）。</p>
+                    </div>
+                    <div class="flex gap-3">
+                        <div class="text-red-400 font-bold">💥</div>
+                        <p><span class="text-white font-bold">傷害計算</span>：造成等同於自身 <span class="text-red-400 font-bold">攻擊 (ATK)</span> 的傷害。</p>
+                    </div>
+                    <div class="flex gap-3">
+                        <div class="text-green-400 font-bold">🛡️</div>
+                        <p><span class="text-white font-bold">反擊機制</span>：若被攻擊方的 HP 未歸零，則會發動反擊。</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="rules-section">
+                <div class="rules-title"><span>4</span> 棄牌代價 (DIS)</div>
+                <p>回合結束時，玩家必須從剩餘手牌中棄掉總合 <span class="text-purple-400 font-bold">大於等於</span> 剛派出卡片 <span class="text-purple-400 font-bold">棄牌數 (DIS)</span> 的牌。這代表越重量級的遊戲通常需要消耗更多卡牌資源。</p>
+            </div>
+
+            <div class="rules-section">
+                <div class="rules-title"><span>5</span> 勝利條件</div>
+                <p>當發生以下情況時，對戰結束：</p>
+                <ul class="mt-3 space-y-2 text-sm">
+                    <li class="flex items-center gap-2"><span class="text-green-400">✓</span> <span>對手 <span class="text-white font-bold">無法支付棄牌代價</span></span></li>
+                    <li class="flex items-center gap-2"><span class="text-green-400">✓</span> <span>對手 <span class="text-white font-bold">牌庫已空且無手牌</span> 可抽</span></li>
+                </ul>
+            </div>
+
+            <button onclick="switchView('battle')" class="w-full py-4 bg-slate-800 hover:bg-slate-700 rounded-xl font-bold text-white shadow-lg transition-all active:scale-95 border border-slate-600 mb-8">返回對戰大廳</button>
+        </div>
+    </div>
+
+    <!-- About View -->
+    <div id="view-about" class="view">
+        <div class="rules-content">
+            <h1 class="text-3xl font-bold text-white mb-8 flex items-center gap-3">
+                <span class="text-4xl">ℹ️</span> 關於遊戲
+            </h1>
+
+            <div class="rules-section">
+                <div class="rules-title"><span>A</span> 卡片稀有度怎麼分配？</div>
+                <p>
+                    稀有度完全依照 <span class="text-white font-bold">BGG 排名</span> 來決定。
+                    排名越前面越稀有：
+                </p>
+                <ul class="mt-3 space-y-2 text-sm">
+                    <li><span class="text-yellow-400 font-bold">UR</span>：Overall Rank <span class="text-white font-bold">1–50</span></li>
+                    <li><span class="text-red-400 font-bold">SSR</span>：Overall Rank <span class="text-white font-bold">51–200</span></li>
+                    <li><span class="text-purple-400 font-bold">SR</span>：Overall Rank <span class="text-white font-bold">201–800</span></li>
+                    <li><span class="text-blue-400 font-bold">R</span>：Overall Rank <span class="text-white font-bold">801–2500</span></li>
+                    <li><span class="text-green-400 font-bold">UC</span>：Overall Rank <span class="text-white font-bold">2501–6000</span></li>
+                    <li><span class="text-slate-300 font-bold">C</span>：Overall Rank <span class="text-white font-bold">6001+</span></li>
+                </ul>
+                <p class="mt-4 text-xs text-slate-400 font-mono">
+                    BGG排名時間擷取至2025/11/11
+                </p>
+            </div>
+
+            <div class="rules-section">
+                <div class="rules-title"><span>B</span> HP、ATK、SPD、DIS怎麼計算？</div>
+                <p class="text-sm">
+                    每張卡牌都對應一款桌遊，數值是由桌遊在 BGG 的公開資料轉換而來：
+                </p>
+                <div class="mt-4 space-y-3 text-sm">
+                    <div>
+                        <div class="text-white font-bold">❤️ HP 生命值：評分人數</div>
+                        <div class="text-slate-300 font-mono">HP = 50 × log10( 評分人數 )，最少 10</div>
+                        <div class="text-xs text-slate-400">代表此遊戲的知名度與討論熱度，影響該卡生命力。</div>
+                    </div>
+                    <div>
+                        <div class="text-white font-bold">⚔️ ATK 攻擊力：平均評分</div>
+                        <div class="text-slate-300 font-mono">ATK = 平均評分 × 10</div>
+                        <div class="text-xs text-slate-400">代表此遊戲BBG上的平均分數1~10分，影響對戰時的傷害。</div>
+                    </div>
+                    <div>
+                        <div class="text-white font-bold">⚡ SPD 速度：玩家人數 & 遊玩時間</div>
+                        <div class="text-slate-300 font-mono">SPD = 遊玩時間/遊玩人數</div>
+                        <div class="text-xs text-slate-400">數值代表平均每位玩家的遊戲時間，影響對戰時的先後手。</div>
+                    </div>
+                    <div>
+                        <div class="text-white font-bold">🎴 DIS 棄牌值：策略重度</div>
+                        <div class="text-slate-300 font-mono">DIS = max( 1, floor(策略重度) )</div>
+                        <div class="text-xs text-slate-400">代表此遊戲BBG上的策略重度1-5分，影響對戰時的棄牌代價。</div>
+                    </div>
+                </div>
+                <p class="mt-4 text-xs text-slate-400 font-mono">
+                    BBG數值時間擷取至2025/11/11 
+                </p>
+            </div>
+
+            <div class="rules-section">
+                <div class="rules-title"><span>C</span> 爆擊率如何獲得？</div>
+                <p class="text-sm">
+                    爆擊率是「重複抽到同一張卡」的加成：
+                </p>
+                <ul class="mt-3 space-y-2 text-sm">
+                    <li>第一次抽到該卡：爆擊加成 <span class="text-white font-bold">0%</span></li>
+                    <li>再次抽到同一張：第一次重複會變成 <span class="text-white font-bold">10%</span></li>
+                    <li>之後每次重複：爆擊加成會 <span class="text-white font-bold">×1.1</span></li>
+                    <li>最多上限 <span class="text-white font-bold">50%</span>）</li>
+                </ul>
+                <p class="mt-3 text-xs text-slate-400">
+                    未來將近一不更新此機制。
+                </p>
+            </div>
+
+            <div class="rules-section">
+                <div class="rules-title"><span>D</span> 右下角編號是什麼？</div>
+                <p class="text-sm">
+                    右下角的 <span class="text-white font-bold">#編號</span> 是依照 <span class="text-white font-bold">BGG Overall 排名排序後的流水號</span>（越前面代表排名越高）。
+                </p>
+                <p class="mt-2 text-xs text-slate-400 font-mono">
+                    依照成功蒐集到資訊的遊戲進行排名後獲得的編號，並非真實BGG排名。
+                </p>
+            </div>
+
+            <div class="rules-section">
+                <div class="rules-title"><span>E</span> 作者聲明</div>
+                <p class="text-sm text-slate-300 leading-relaxed">
+                    此作品為個人練習，靈感來源於
+                    <a href="https://wikigacha.com/" target="_blank" class="underline hover:text-blue-400">
+                        Wikipedia Gacha
+                    </a>製作而來，桌遊資料來源於 BGG 官網。
+                </p>
+            </div>
+
+            <button onclick="switchView('home')" class="w-full py-4 bg-slate-800 hover:bg-slate-700 rounded-xl font-bold text-white shadow-lg transition-all active:scale-95 border border-slate-600 mb-8">返回首頁</button>
+        </div>
+    </div>
+
+    <!-- Card Details Modal -->
+    <div id="card-details-modal" class="fixed inset-0 hidden">
+        <div id="card-details-content" class="w-full h-full flex items-center justify-center">
+            <!-- Modal Content Injected Here -->
+        </div>
+    </div>
+</div>
+
+<script>
+    console.log("Top level script starting...");
+    // --- Card Data ---
+    let CARD_POOL = [];
+    let CARDS_BY_RARITY = null;
+
+    function buildRarityIndex() {
+        // Build once after CARD_POOL is ready
+        CARDS_BY_RARITY = { UR: [], SSR: [], SR: [], R: [], UC: [], C: [] };
+        CARD_POOL.forEach(function(card) {
+            if (card && card.rarity && CARDS_BY_RARITY[card.rarity]) {
+                CARDS_BY_RARITY[card.rarity].push(card);
+            }
+        });
+    }
+
+    function sampleUnique(arr, count) {
+        // Defensive: if not enough cards, just return as many as possible.
+        if (!arr || arr.length === 0) return [];
+        const copy = arr.slice();
+        // Fisher-Yates shuffle
+        for (let i = copy.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            const tmp = copy[i];
+            copy[i] = copy[j];
+            copy[j] = tmp;
+        }
+        return copy.slice(0, Math.min(count, copy.length));
+    }
+
+    function buildAdvancedEnemyDeckCards() {
+        if (!CARDS_BY_RARITY) buildRarityIndex();
+
+        const recipe = { UR: 1, SSR: 1, SR: 2, R: 2, UC: 2, C: 2 };
+        let picked = [];
+
+        Object.keys(recipe).forEach(function(r) {
+            const need = recipe[r];
+            const src = (CARDS_BY_RARITY && CARDS_BY_RARITY[r]) ? CARDS_BY_RARITY[r] : [];
+            picked = picked.concat(sampleUnique(src, need));
+        });
+
+        // If somehow not enough, fallback to random fill (shouldn't happen with BGG dataset)
+        while (picked.length < 10 && CARD_POOL.length > 0) {
+            const c = CARD_POOL[Math.floor(Math.random() * CARD_POOL.length)];
+            // Avoid duplicates by id
+            if (!picked.some(function(x) { return x.id === c.id; })) picked.push(c);
+        }
+
+        // Shuffle order and clone
+        const shuffled = shuffle(picked);
+        return shuffled.map(function(c) { return Object.assign({}, c); });
+    }
+
+    function buildNormalEnemyDeckCards() {
+        const enemyDeckCards = [];
+        const pool = [].concat(CARD_POOL);
+        for (let i = 0; i < 10; i++) {
+            const idx = Math.floor(Math.random() * pool.length);
+            enemyDeckCards.push(Object.assign({}, pool.splice(idx, 1)[0]));
+        }
+        return enemyDeckCards;
+    }
+
+    // --- State Management ---
+    let state;
+    try {
+        console.log("Initializing State...");
+        state = {
+            collectedIds: JSON.parse(localStorage.getItem('collectedIds') || '[]'),
+            deckIds: JSON.parse(localStorage.getItem('deckIds') || '[]'),
+            decks: JSON.parse(localStorage.getItem('decks') || '[]'),
+            favorites: JSON.parse(localStorage.getItem('favorites') || '[]'),
+            collectionSort: localStorage.getItem('collectionSort') || 'id',
+            cardCritRates: JSON.parse(localStorage.getItem('cardCritRates') || '{}'),
+            playerParams: JSON.parse(localStorage.getItem('playerParams') || '{"name":"Guest", "joinedDate":"2026/03/09", "packs":8, "wins":0, "totalBattles":0, "lastLoginDate":""}'),
+            currentView: 'home',
+            gachaResult: [],
+            revealIndex: 0,
+            battle: null
+        };
+        console.log("State Initialized Successfully");
+    } catch (e) {
+        console.error("State Initialization Failed! Resetting to defaults.", e);
+        state = {
+            collectedIds: [],
+            deckIds: [],
+            decks: [],
+            favorites: [],
+            collectionSort: 'id',
+            cardCritRates: {},
+            playerParams: {"name":"Guest", "joinedDate":"2026/03/09", "packs":8, "wins":0, "totalBattles":0, "lastLoginDate":""},
+            currentView: 'home',
+            gachaResult: [],
+            revealIndex: 0,
+            battle: null
+        };
+    }
+
+    function saveState() {
+        try {
+            localStorage.setItem('collectedIds', JSON.stringify(state.collectedIds));
+            localStorage.setItem('deckIds', JSON.stringify(state.deckIds));
+            localStorage.setItem('decks', JSON.stringify(state.decks));
+            localStorage.setItem('favorites', JSON.stringify(state.favorites));
+            localStorage.setItem('collectionSort', state.collectionSort);
+            localStorage.setItem('cardCritRates', JSON.stringify(state.cardCritRates));
+            localStorage.setItem('playerParams', JSON.stringify(state.playerParams));
+        } catch (e) {
+            console.error("Failed to save state:", e);
+        }
+    }
+
+    function showSystemModal(message, title = '提示', emoji = 'ℹ️') {
+        const modal = document.getElementById('system-modal');
+        const titleEl = document.getElementById('system-modal-title');
+        const msgEl = document.getElementById('system-modal-message');
+        const emojiEl = document.getElementById('system-modal-emoji');
+        const cancelBtn = document.getElementById('system-modal-cancel');
+        const okBtn = document.getElementById('system-modal-close');
+        const inputWrap = document.getElementById('system-modal-input-wrap');
+        const inputEl = document.getElementById('system-modal-input');
+        if (!modal || !titleEl || !msgEl || !emojiEl) {
+            // Fallback (should not happen)
+            console.warn('[system-modal missing]', title + ': ' + message);
+            return;
+        }
+
+        // Default = informational modal (no cancel button, no confirm handler)
+        systemModalConfirmHandler = null;
+        if (cancelBtn) cancelBtn.classList.add('hidden');
+        if (okBtn) okBtn.innerText = '確定';
+        if (inputWrap) inputWrap.classList.add('hidden');
+        if (inputEl) inputEl.value = '';
+
+        titleEl.innerText = title;
+        msgEl.innerText = message;
+        emojiEl.innerText = emoji;
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+
+    // Used for destructive actions (ex: reset save)
+    let systemModalConfirmHandler = null;
+    function showSystemConfirm(message, title = '確認', emoji = '⚠️', onConfirm = null) {
+        // Note: showSystemModal() will reset confirm handler by default,
+        // so we must set it AFTER rendering the modal.
+        showSystemModal(message, title, emoji);
+        systemModalConfirmHandler = typeof onConfirm === 'function' ? onConfirm : null;
+        const cancelBtn = document.getElementById('system-modal-cancel');
+        if (cancelBtn) cancelBtn.classList.remove('hidden');
+    }
+
+    function showSystemPrompt(message, title = '輸入', emoji = '✏️', defaultValue = '', onSubmit = null) {
+        showSystemModal(message, title, emoji);
+        const cancelBtn = document.getElementById('system-modal-cancel');
+        const inputWrap = document.getElementById('system-modal-input-wrap');
+        const inputEl = document.getElementById('system-modal-input');
+        if (cancelBtn) cancelBtn.classList.remove('hidden');
+        if (inputWrap) inputWrap.classList.remove('hidden');
+        if (inputEl) {
+            inputEl.value = defaultValue || '';
+            // Focus after modal is shown
+            setTimeout(function() { try { inputEl.focus(); inputEl.select(); } catch (e) {} }, 30);
+        }
+
+        systemModalConfirmHandler = function() {
+            const value = inputEl ? inputEl.value : '';
+            if (typeof onSubmit === 'function') onSubmit(value);
+        };
+    }
+
+    function closeSystemModal() {
+        const modal = document.getElementById('system-modal');
+        const inputWrap = document.getElementById('system-modal-input-wrap');
+        const inputEl = document.getElementById('system-modal-input');
+        if (!modal) return;
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        if (inputWrap) inputWrap.classList.add('hidden');
+        if (inputEl) inputEl.value = '';
+        systemModalConfirmHandler = null;
+    }
+
+    // Wire close button
+    try {
+        const btn = document.getElementById('system-modal-close');
+        const cancelBtn = document.getElementById('system-modal-cancel');
+        const modal = document.getElementById('system-modal');
+        const inputEl = document.getElementById('system-modal-input');
+        if (btn) btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            // If confirm handler exists, treat this click as "confirm"
+            if (systemModalConfirmHandler) {
+                const fn = systemModalConfirmHandler;
+                closeSystemModal();
+                try { fn(); } catch (err) { console.error(err); }
+                return;
+            }
+            closeSystemModal();
+        });
+        if (cancelBtn) cancelBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            closeSystemModal();
+        });
+        if (modal) modal.addEventListener('click', closeSystemModal);
+
+        // Enter-to-confirm on prompt
+        if (inputEl) inputEl.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const fn = systemModalConfirmHandler;
+                if (fn) {
+                    closeSystemModal();
+                    try { fn(); } catch (err) { console.error(err); }
+                } else {
+                    closeSystemModal();
+                }
+            }
+        });
+    } catch (e) {
+        console.warn('system modal init failed', e);
+    }
+
+    function requestResetSave() {
+        // Two-step confirmation to avoid accidental wipe
+        showSystemConfirm(
+            '⚠️ 第一次確認：\n你確定要重置存檔嗎？\n\n（這會清除收藏/牌庫/勝率/爆擊加成等本機資料）',
+            '重置存檔',
+            '🧹',
+            function() {
+                showSystemConfirm(
+                    '⚠️ 第二次確認：\n真的要清除所有本機存檔？\n\n此動作無法復原。',
+                    '重置存檔',
+                    '🧹',
+                    function() {
+                        try {
+                            localStorage.clear();
+                        } catch (e) {
+                            console.error('Failed to clear localStorage', e);
+                        }
+                        // Reload page to ensure a clean state
+                        location.reload();
+                    }
+                );
+            }
+        );
+    }
+
+    // --- UI Helpers ---
+    function createCardHTML(card, isSmall, isSelected, showFavorite) {
+        if (isSmall === undefined) isSmall = false;
+        if (isSelected === undefined) isSelected = false;
+        if (showFavorite === undefined) showFavorite = false;
+        
+        var critRate = state.cardCritRates[card.id] || 0;
+        var rarityClass = "rarity-" + card.rarity;
+        var rbClass = "rb-" + card.rarity;
+        var favIcon = (state.favorites.indexOf(card.id) > -1) ? "⭐" : "☆";
+        
+        var html = '<div class="card ' + rarityClass + ' ' + (isSelected ? "shadow-[0_0_20px_white] scale-[1.02]" : "") + '" data-id="' + card.id + '">';
+        if (isSelected) html += '<div class="deck-badge">已選入</div>';
+        if (showFavorite) html += '<div class="favorite-btn" onclick="toggleFavorite(' + card.id + ', event)">' + favIcon + '</div>';
+        
+        html += '<div class="rarity-badge ' + rbClass + '">' + card.rarity + '</div>' +
+                '<div class="card-id-badge">#' + card.id + '</div>' +
+                '<img src="' + card.image + '" class="card-image-bg" loading="lazy">' +
+                
+                '<div class="card-inner">' +
+                    '<div class="card-content-overlay">' +
+                        '<div class="card-header">' +
+                            '<div class="card-name text-white drop-shadow-lg leading-tight font-bold">' + card.name + '</div>' +
+                            '<div class="card-hp font-bold">HP ' + card.hp + '</div>' +
+                        '</div>' +
+                        
+                        '<div class="flex-1 relative flex items-center justify-center">';
+        
+        if (critRate > 0) {
+            html += '<div class="absolute bottom-1 left-1 text-[8px] text-yellow-400 font-bold drop-shadow-md">爆擊 +' + Math.round(critRate) + '%</div>';
+        }
+        
+        html +=         '</div>' +
+                        '<div class="card-stats">' +
+                            '<div class="stat-item" title="攻擊">' +
+                                '<span class="stat-icon">⚔️</span>' +
+                                '<span class="stat-value text-white font-bold">' + card.atk + '</span>' +
+                            '</div>' +
+                            '<div class="stat-item" title="速度">' +
+                                '<span class="stat-icon">⚡</span>' +
+                                '<span class="stat-value text-white font-bold">' + card.spd + '</span>' +
+                            '</div>' +
+                            '<div class="stat-item text-red-400" title="代價">' +
+                                '<span class="stat-icon">🎴</span>' +
+                                '<span class="stat-value font-bold">' + card.discard + '</span>' +
+                            '</div>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>' +
+            '</div>';
+        return html;
+    }
+
+    // --- Home View Logic ---
+    function updateHomeView() {
+        // if (CARD_POOL.length === 0) return;
+        document.getElementById('player-name').innerText = state.playerParams.name;
+        document.getElementById('player-join-date').innerText = state.playerParams.joinedDate;
+        
+        var winRate = state.playerParams.totalBattles > 0 
+            ? Math.round((state.playerParams.wins / state.playerParams.totalBattles) * 100) 
+            : 0;
+            
+        document.getElementById('home-win-rate').innerText = winRate + "%";
+        document.getElementById('home-wins').innerText = state.playerParams.wins;
+        document.getElementById('home-total-battles').innerText = state.playerParams.totalBattles;
+        
+        document.getElementById('home-packs-count').innerText = state.playerParams.packs + " / 8";
+        
+        document.getElementById('home-collection-count').innerText = state.collectedIds.length;
+        
+        var urCount = state.collectedIds.filter(function(id) {
+            var c = CARD_POOL.find(function(card) { return card.id === id; });
+            return c && c.rarity === 'UR';
+        }).length;
+        document.getElementById('home-ur-count').innerText = urCount;
+        
+        // Favorites carousel
+        var favEl = document.getElementById('home-favorites-carousel');
+        if (state.favorites.length === 0) {
+            favEl.innerHTML = '<div class="text-slate-500 text-sm w-full text-center py-10 border-2 border-dashed border-slate-700 rounded-xl">尚未設定我的最愛卡牌，請前往收藏頁面設定。</div>';
+        } else {
+            var favHtml = state.favorites.map(function(id) {
+                var card = CARD_POOL.find(function(c) { return c.id === id; });
+                if (!card) return '';
+                return (
+                    '<div class="w-[140px] flex-shrink-0 snap-center">' + createCardHTML(card, true) + '</div>'
+                );
+            }).join('');
+            favEl.innerHTML = favHtml;
+        }
+    }
+
+    function updateGachaView() {
+        // Keep gacha page pack counter always in sync with state
+        const el = document.getElementById('gacha-packs-display');
+        if (el) el.innerText = state.playerParams.packs + " / 8";
+    }
+
+    window.editPlayerName = function() {
+        showSystemPrompt(
+            '請輸入新的玩家名稱',
+            '修改名稱',
+            '✏️',
+            state.playerParams.name,
+            function(newName) {
+                const val = (newName || '').trim();
+                if (!val) {
+                    showSystemModal('名稱不能為空白。', '提示', '⚠️');
+                    return;
+                }
+                state.playerParams.name = val;
+                saveState();
+                updateHomeView();
+            }
+        );
+    };
+
+    console.log("Navigation Logic Defined");
+    // --- Navigation ---
+    function switchView(viewName) {
+        // if (CARD_POOL.length === 0) return;
+        state.currentView = viewName;
+        document.querySelectorAll('.view').forEach(function(v) { v.classList.remove('active'); });
+        document.getElementById("view-" + viewName).classList.add('active');
+        
+        document.querySelectorAll('.nav-item').forEach(function(i) {
+            i.classList.toggle('active', i.dataset.view === viewName);
+        });
+
+        if (viewName === 'home') updateHomeView();
+        if (viewName === 'gacha') updateGachaView();
+        if (viewName === 'collection') renderCollection();
+        if (viewName === 'deck') renderDecks();
+        if (viewName === 'battle') checkBattleReady();
+    }
+
+    // --- Gacha Logic ---
+    let packEl, revealOverlay, revealCardInner, revealFrontContent, nextRevealBtn, revealCountTxt, revealClickArea;
+    try {
+        packEl = document.getElementById('card-pack');
+        revealOverlay = document.getElementById('reveal-overlay');
+        revealCardInner = document.getElementById('reveal-card-inner');
+        revealFrontContent = document.getElementById('reveal-front-content');
+        nextRevealBtn = document.getElementById('btn-next-reveal');
+        revealCountTxt = document.getElementById('reveal-count');
+        revealClickArea = document.getElementById('reveal-clickable-area');
+
+        if (!packEl) console.warn("Missing #card-pack");
+        else packEl.addEventListener('click', startGacha);
+
+        if (!revealClickArea) console.warn("Missing #reveal-clickable-area");
+        else revealClickArea.addEventListener('click', nextReveal);
+
+        if (!nextRevealBtn) console.warn("Missing #btn-next-reveal");
+        else nextRevealBtn.addEventListener('click', nextReveal);
+        
+        console.log("Gacha Event Listeners Attached");
+    } catch (e) {
+        console.error("Gacha Init Error:", e);
+    }
+
+    function startGacha() {
+        if (CARD_POOL.length === 0) return;
+        if (state.playerParams.packs <= 0) {
+            showSystemModal('今天的卡包已經開完了！請明天再來。', '卡包不足', '🎁');
+            return;
+        }
+
+        // Deduct pack
+        state.playerParams.packs--;
+        saveState();
+        updateHomeView();
+        updateGachaView();
+
+        // Pick 5 unique random cards
+        const result = [];
+        const pool = [].concat(CARD_POOL);
+        const initialCollected = new Set(state.collectedIds); // Track initially collected to know if "NEW"
+
+        for (let i = 0; i < 5; i++) {
+            const idx = Math.floor(Math.random() * pool.length);
+            const card = pool.splice(idx, 1)[0];
+            
+            // Check if entirely new
+            const isNew = !initialCollected.has(card.id) && !result.some(function(r) { return r.card.id === card.id; });
+            result.push({ card, isNew });
+            
+            // Duplicate logic for Critical Rate
+            if (state.collectedIds.indexOf(card.id) > -1) {
+                let currentRate = state.cardCritRates[card.id] || 0;
+                if (currentRate === 0) {
+                    currentRate = 10;
+                } else {
+                    currentRate = Math.min(50, currentRate * 1.1);
+                }
+                state.cardCritRates[card.id] = currentRate;
+            } else {
+                state.collectedIds.push(card.id);
+                state.cardCritRates[card.id] = 0;
+            }
+        }
+        state.gachaResult = result;
+        state.revealIndex = 0;
+        saveState();
+        
+        packEl.classList.add('opened');
+        
+        setTimeout(function() {
+            revealOverlay.style.display = 'flex';
+        // Delay revealing to let display flex apply
+        setTimeout(function() {
+            showNextCard();
+        }, 50);
+        }, 800);
+    }
+
+    function showNextCard() {
+        const item = state.gachaResult[state.revealIndex];
+        const card = item.card;
+        const isNew = item.isNew;
+
+        // Reset animation state
+        revealCardInner.classList.remove('flipped');
+        revealFrontContent.className = 'reveal-front absolute w-full h-full'; 
+        
+        let cardHtml = createCardHTML(card);
+        
+        if (card.rarity === 'UR') revealFrontContent.classList.add('reveal-effect-UR');
+        else if (card.rarity === 'SSR') revealFrontContent.classList.add('reveal-effect-SSR');
+        else if (card.rarity === 'SR') revealFrontContent.classList.add('reveal-effect-SR');
+
+        if (isNew) {
+            cardHtml += '<div class="new-badge">NEW!</div>';
+        }
+
+        revealFrontContent.innerHTML = cardHtml;
+        revealCountTxt.innerText = "第 " + (state.revealIndex + 1) + " / 5 張";
+        
+        // Trigger flip animation
+        setTimeout(function() {
+            revealCardInner.classList.add('flipped');
+        }, 50);
+        
+        if (state.revealIndex === 4) {
+            nextRevealBtn.innerText = '完成';
+        } else {
+            nextRevealBtn.innerText = '下一張';
+        }
+    }
+
+    function nextReveal() {
+        if (state.revealIndex < 4) {
+            state.revealIndex++;
+            showNextCard();
+        } else {
+            revealOverlay.style.display = 'none';
+            document.getElementById('card-pack').classList.remove('opened');
+            // switchView('collection'); // Stay on gacha page
+        }
+    }
+
+
+    // --- Collection Logic ---
+    function renderCollection() {
+        const list = document.getElementById('collection-list');
+        const sortSelect = document.getElementById('sort-select');
+        
+        sortSelect.value = state.collectionSort;
+
+        // Update stats
+        document.getElementById('collection-progress').innerText = state.collectedIds.length;
+        
+        const counts = { UR: 0, SSR: 0, SR: 0, R: 0, UC: 0, C: 0 };
+        state.collectedIds.forEach(function(id) {
+            const card = CARD_POOL.find(function(c) { return c.id === id; });
+            if (card && counts[card.rarity] !== undefined) counts[card.rarity]++;
+        });
+        
+        document.getElementById('col-count-UR').innerText = counts.UR;
+        document.getElementById('col-count-SSR').innerText = counts.SSR;
+        document.getElementById('col-count-SR').innerText = counts.SR;
+        document.getElementById('col-count-R').innerText = counts.R;
+        document.getElementById('col-count-UC').innerText = counts.UC;
+        document.getElementById('col-count-C').innerText = counts.C;
+        
+        if (state.collectedIds.length === 0) {
+            list.innerHTML = '<div class="col-span-3 text-center py-20 text-slate-500">尚無收藏，快去抽卡吧！</div>';
+            return;
+        }
+
+        const compareCards = function(a, b, primaryKey) {
+            const getVal = function(card, key) {
+                if (key === 'critRate') return state.cardCritRates[card.id] || 0;
+                return card[key];
+            };
+
+            if (primaryKey === 'favorite') {
+                var favA = state.favorites.indexOf(a.id) > -1;
+                var favB = state.favorites.indexOf(b.id) > -1;
+                if (favA !== favB) return favB ? 1 : -1;
+                return a.id - b.id; // Tie-break by Rank/ID
+            }
+
+            if (primaryKey === 'id') return a.id - b.id;
+            if (primaryKey === 'spd') return a.spd - b.spd;
+
+            if (primaryKey !== 'id') {
+                const valA = getVal(a, primaryKey);
+                const valB = getVal(b, primaryKey);
+                if (valB !== valA) return valB - valA; 
+            }
+
+            // Tie-break
+            if (b.hp !== a.hp) return b.hp - a.hp;
+            if (b.atk !== a.atk) return b.atk - a.atk;
+            if (b.spd !== a.spd) return b.spd - a.spd;
+            if (b.discard !== a.discard) return b.discard - a.discard;
+            
+            const critA = state.cardCritRates[a.id] || 0;
+            const critB = state.cardCritRates[b.id] || 0;
+            if (critB !== critA) return critB - critA;
+
+            return a.id - b.id;
+        };
+
+        const collected = state.collectedIds
+            .map(function(id) { return CARD_POOL.find(function(c) { return c.id === id; }); })
+            .filter(function(c) { return c; })
+            .sort(function(a, b) { return compareCards(a, b, state.collectionSort); });
+
+        list.innerHTML = collected.map(function(card) {
+            // Context passed as showFavorite = true
+            return (
+                '<div class="collection-item" onclick="showCardDetails(' + card.id + ')">' +
+                    createCardHTML(card, true, false, true) +
+                '</div>'
+            );
+        }).join('');
+    }
+
+    try {
+        const sortSelect = document.getElementById('sort-select');
+        if (sortSelect) {
+            sortSelect.addEventListener('change', function(e) {
+                state.collectionSort = e.target.value;
+                saveState();
+                renderCollection();
+            });
+        } else {
+            console.warn("Missing #sort-select");
+        }
+        console.log("Collection Event Listeners Attached");
+    } catch (e) {
+        console.error("Collection Init Error:", e);
+    }
+
+    window.toggleFavorite = function(id, event) {
+        if (event) event.stopPropagation();
+        const idx = state.favorites.indexOf(id);
+        if (idx > -1) {
+            state.favorites.splice(idx, 1);
+        } else {
+            state.favorites.push(id);
+        }
+        saveState();
+        if (state.currentView === 'collection') renderCollection();
+        if (state.currentView === 'home') updateHomeView();
+    };
+
+    window.showCardDetails = function(id) {
+        const card = CARD_POOL.find(function(c) { return c.id === id; });
+        if (!card) return;
+        
+        const modal = document.getElementById('card-details-modal');
+        const content = document.getElementById('card-details-content');
+        const bggUrl = "https://boardgamegeek.com/boardgame/" + card.bgg_id;
+        const isFav = state.favorites.indexOf(card.id) > -1;
+
+        content.innerHTML = 
+            '<div class="modal-container" onclick="event.stopPropagation()">' +
+                '<div class="flex-1 overflow-y-auto p-6">' +
+                    '<div class="flex justify-between items-center mb-6">' +
+                        '<h2 class="text-2xl font-bold text-white drop-shadow-md pr-4 leading-tight">' + card.name + '</h2>' +
+                        '<button onclick="toggleFavorite(' + card.id + ', event); showCardDetails(' + card.id + ')" class="text-3xl filter drop-shadow-lg transition-transform active:scale-125 flex-shrink-0">' +
+                            (isFav ? "⭐" : "☆") +
+                        '</button>' +
+                    '</div>' +
+                    
+                    '<div class="flex justify-center mb-8">' +
+                        '<div class="w-full max-w-[360px] shadow-[0_0_40px_rgba(255,255,255,0.15)] rounded-2xl ring-4 ring-offset-4 ring-offset-slate-900 border-' + card.rarity + ' bg-black/20">' +
+                            '<img src="' + card.image + '" class="w-full h-auto object-contain rounded-2xl" loading="lazy">' +
+                        '</div>' +
+                    '</div>' +
+         
+                    '<div class="grid grid-cols-2 gap-3 mb-6">' +
+                        '<div class="bg-slate-800/80 rounded-2xl p-3 border border-slate-700/50">' +
+                            '<div class="text-[10px] text-slate-500 uppercase tracking-wider mb-1">BGG 評分</div>' +
+                            '<div class="text-lg font-bold text-yellow-500">★ ' + (card.rating_avg ? card.rating_avg.toFixed(1) : "-") + '</div>' +
+                        '</div>' +
+                        '<div class="bg-slate-800/80 rounded-2xl p-3 border border-slate-700/50">' +
+                            '<div class="text-[10px] text-slate-500 uppercase tracking-wider mb-1">BGG 排名</div>' +
+                            '<div class="text-lg font-bold text-blue-400">#' + card.rank + '</div>' +
+                        '</div>' +
+                    '</div>' +
+
+                    '<div class="bg-slate-800/80 rounded-2xl p-5 mb-6 shadow-inner space-y-3 text-sm text-slate-300 border border-slate-700/30">' +
+                        '<div class="flex justify-between items-center border-b border-slate-700/50 pb-2"><span class="text-slate-500">稀有度</span> <span class="px-2 py-0.5 rounded-md bg-slate-900 font-bold text-' + card.rarity + '">' + card.rarity + '</span></div>' +
+                        '<div class="flex justify-between"><span class="text-slate-500">血量HP</span> <span class="font-bold text-green-400">' + card.hp + '</span></div>' +
+                        '<div class="flex justify-between"><span class="text-slate-500">攻擊力 (ATK)</span> <span class="font-bold text-red-400">' + card.atk + '</span></div>' +
+                        '<div class="flex justify-between"><span class="text-slate-500">速度 (SPD)</span> <span class="font-bold text-yellow-400">' + card.spd + '</span></div>' +
+                        '<div class="flex justify-between"><span class="text-slate-500">棄牌數 (DIS)</span> <span class="font-bold text-purple-400">' + card.discard + '</span></div>' +
+                        '<div class="flex justify-between"><span class="text-slate-500">爆擊率加成</span> <span class="font-bold text-orange-400">+' + Math.round(state.cardCritRates[card.id] || 0) + '%</span></div>' +
+                    '</div>' +
+         
+                    '<div class="bg-slate-800/80 rounded-2xl p-5 mb-6 shadow-inner space-y-3 text-sm text-slate-300 border border-slate-700/30">' +
+                        '<h3 class="text-white font-bold border-b border-slate-700 pb-2 mb-2 flex items-center gap-2"><span>🎲</span> 桌遊規格</h3>' +
+                        '<div class="flex justify-between"><span class="text-slate-500">出版年份</span> <span class="text-slate-200">' + (card.year_published || "-") + '</span></div>' +
+                        '<div class="flex justify-between"><span class="text-slate-500">遊戲人數</span> <span class="text-slate-200">' + card.min_players + ' - ' + card.max_players + ' 人</span></div>' +
+                        '<div class="flex justify-between"><span class="text-slate-500">遊玩時間</span> <span class="text-slate-200">' + card.min_playtime + ' - ' + card.max_playtime + ' 分</span></div>' +
+                        '<div class="flex justify-between"><span class="text-slate-500">建議年齡</span> <span class="text-slate-200">' + card.min_age + '+</span></div>' +
+                        '<div class="flex justify-between"><span class="text-slate-500">策略重度</span> <span class="text-slate-200">' + (card.weight ? card.weight.toFixed(2) : "-") + ' / 5</span></div>' +
+                    '</div>' +
+         
+                    '<div class="bg-slate-900/50 rounded-2xl p-5 mb-8 shadow-inner text-xs text-slate-400 leading-relaxed max-h-40 overflow-y-auto font-mono scrollbar-hide">' +
+                        (card.description || "無描述資訊...") +
+                    '</div>' +
+         
+                    '<a href="' + bggUrl + '" target="_blank" class="block w-full py-4 bg-[#ff5100] hover:bg-[#ff6a00] text-center rounded-2xl font-bold text-white shadow-lg transition-all active:scale-95 mb-4">' +
+                        "在 BGG 上查看詳細資訊" +
+                    '</a>' +
+                '</div>' +
+                '<div class="p-4 bg-slate-900/80 border-t border-slate-800 backdrop-blur-sm">' +
+                    '<button onclick="closeCardDetails()" class="w-full py-4 bg-slate-800 hover:bg-slate-700 active:scale-95 rounded-2xl font-bold text-white transition-all border border-slate-700">返回</button>' +
+                '</div>' +
+            '</div>';
+        
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        
+        // Close on clicking outside
+        modal.onclick = closeCardDetails;
+    };
+
+    window.closeCardDetails = function() {
+        const modal = document.getElementById('card-details-modal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    };
+
+    // --- Deck Logic V2 ---
+    let builderState = {
+        editingId: null, // null for new deck, else deck id
+        name: "新牌庫",
+        selectedIds: []
+    };
+
+    function renderDecks() {
+        const container = document.getElementById('decks-container');
+        if (state.decks.length === 0) {
+            container.innerHTML = '<div class="text-center py-10 text-slate-500">尚未建立任何牌庫。</div>';
+            return;
+        }
+
+        container.innerHTML = state.decks.map(function(deck, idx) {
+            let totalHp=0, totalAtk=0, totalSpd=0, totalDiscard=0;
+            deck.cards.forEach(function(id) {
+                const c = CARD_POOL.find(function(c) { return c.id === id; });
+                if (c) { totalHp+=c.hp; totalAtk+=c.atk; totalSpd+=c.spd; totalDiscard+=c.discard; }
+            });
+            const avgHp = Math.round(totalHp/10);
+            const avgAtk = Math.round(totalAtk/10);
+            const avgSpd = Math.round(totalSpd/10);
+            const avgDiscard = Math.round(totalDiscard/10);
+
+            return (
+                '<div class="bg-slate-800 rounded-xl p-4 shadow-lg border border-slate-700">' +
+                    '<div class="flex justify-between items-center mb-3">' +
+                        '<h3 class="font-bold text-lg text-white">' + deck.name + ' <span class="text-xs font-normal text-slate-400 bg-slate-900 px-2 py-1 rounded">牌庫 ' + (idx+1) + '</span></h3>' +
+                        '<div class="flex gap-2">' +
+                            '<button onclick="editDeck(\'' + deck.id + '\')" class="px-3 py-1 bg-slate-700 hover:bg-slate-600 active:scale-95 rounded text-xs font-bold transition-all text-white">編輯</button>' +
+                            '<button onclick="deleteDeck(\'' + deck.id + '\')" class="px-3 py-1 bg-red-900/50 hover:bg-red-800/80 active:scale-95 text-red-200 rounded text-xs font-bold transition-all">刪除</button>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="flex justify-between px-2 py-1 bg-slate-900/50 rounded text-xs font-mono font-bold">' +
+                        '<span class="text-green-400">HP ' + avgHp + '</span>' +
+                        '<span class="text-red-400">ATK ' + avgAtk + '</span>' +
+                        '<span class="text-yellow-400">SPD ' + avgSpd + '</span>' +
+                        '<span class="text-purple-400">DIS ' + avgDiscard + '</span>' +
+                    '</div>' +
+                '</div>'
+            );
+        }).join('');
+    }
+
+    window.openDeckBuilder = function(deckId = null) {
+        document.getElementById('deck-list-layer').classList.add('hidden');
+        document.getElementById('deck-builder-layer').classList.remove('hidden');
+        document.getElementById('deck-builder-layer').classList.add('flex');
+        
+        if (deckId) {
+            const deck = state.decks.find(function(d) { return d.id === deckId; });
+            builderState.editingId = deckId;
+            builderState.name = deck.name;
+            builderState.selectedIds = [].concat(deck.cards);
+        } else {
+            builderState.editingId = null;
+            builderState.name = "牌庫 " + (state.decks.length + 1);
+            builderState.selectedIds = [];
+        }
+        
+        document.getElementById('builder-deck-name').value = builderState.name;
+        renderDeckBuilder();
+    };
+
+    window.editDeck = function(deckId) {
+        openDeckBuilder(deckId);
+    };
+
+    window.deleteDeck = function(deckId) {
+        showSystemConfirm(
+            '確定要刪除這個牌庫嗎？',
+            '刪除牌庫',
+            '🗑️',
+            function() {
+                state.decks = state.decks.filter(function(d) { return d.id !== deckId; });
+                // If they happen to delete the active fallback deck (if we handle that later)
+                if (state.deckIds.length && state.deckIds === deckId) state.deckIds = [];
+
+                saveState();
+                renderDecks();
+            }
+        );
+    };
+
+    window.cancelDeckBuilder = function() {
+        showSystemConfirm(
+            '尚未儲存的變更將會遺失，確定要取消嗎？',
+            '取消編輯',
+            '⚠️',
+            function() {
+                closeDeckBuilder();
+            }
+        );
+    };
+
+    function closeDeckBuilder() {
+        document.getElementById('deck-list-layer').classList.remove('hidden');
+        document.getElementById('deck-builder-layer').classList.add('hidden');
+        document.getElementById('deck-builder-layer').classList.remove('flex');
+        renderDecks();
+    }
+
+    window.saveDeckBuilder = function() {
+        if (builderState.selectedIds.length !== 10) return;
+        
+        const name = document.getElementById('builder-deck-name').value || '未命名牌庫';
+        
+        if (builderState.editingId) {
+            const deck = state.decks.find(function(d) { return d.id === builderState.editingId; });
+            if (deck) {
+                deck.name = name;
+                deck.cards = [].concat(builderState.selectedIds);
+            }
+        } else {
+            const newDeck = {
+                id: 'deck_' + Date.now(),
+                name: name,
+                cards: [].concat(builderState.selectedIds)
+            };
+            state.decks.push(newDeck);
+        }
+        
+        // Ensure legacy deckIds has something if they just made their first deck (for Battle fallback if needed)
+        if (state.decks.length > 0) {
+            state.deckIds = [].concat(state.decks[0].cards);
+        }
+        
+        saveState();
+        closeDeckBuilder();
+    };
+
+    window.toggleBuilderCard = function(cardId) {
+        const idx = builderState.selectedIds.indexOf(cardId);
+        if (idx > -1) {
+            builderState.selectedIds.splice(idx, 1);
+        } else {
+            if (builderState.selectedIds.length >= 10) {
+                showSystemModal('已經選滿 10 張牌！', '提示', '🎴');
+                return;
+            }
+            builderState.selectedIds.push(cardId);
+        }
+        renderDeckBuilder();
+    };
+
+    document.getElementById('builder-sort').addEventListener('change', function() {
+        renderDeckBuilder();
+    });
+
+    function renderDeckBuilder() {
+        document.getElementById('builder-count').innerText = builderState.selectedIds.length;
+        
+        // Calculate averages
+        let thp=0, tatk=0, tspd=0, tdis=0;
+        builderState.selectedIds.forEach(function(id) {
+            const c = CARD_POOL.find(function(c) { return c.id === id; });
+            if (c) { thp+=c.hp; tatk+=c.atk; tspd+=c.spd; tdis+=c.discard; }
+        });
+        document.getElementById('avg-hp').innerText = Math.round(thp/10) || 0;
+        document.getElementById('avg-atk').innerText = Math.round(tatk/10) || 0;
+        document.getElementById('avg-spd').innerText = Math.round(tspd/10) || 0;
+        document.getElementById('avg-discard').innerText = Math.round(tdis/10) || 0;
+
+        const saveBtn = document.getElementById('btn-save-deck');
+        if (builderState.selectedIds.length === 10) {
+            saveBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            saveBtn.classList.add('shadow-[0_0_15px_rgba(34,197,94,0.5)]');
+        } else {
+            saveBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            saveBtn.classList.remove('shadow-[0_0_15px_rgba(34,197,94,0.5)]');
+        }
+
+        const sortMode = document.getElementById('builder-sort').value;
+        const compareCards = function(a, b, primaryKey) {
+            if (primaryKey === 'favorite') {
+                const favA = state.favorites.indexOf(a.id) > -1;
+                const favB = state.favorites.indexOf(b.id) > -1;
+                if (favA !== favB) return favB ? 1 : -1;
+                return a.id - b.id;
+            }
+            if (primaryKey === 'id') return a.id - b.id;
+            if (primaryKey === 'spd') return a.spd - b.spd;
+            if (primaryKey === 'hp') return b.hp - a.hp;
+            if (primaryKey === 'atk') return b.atk - a.atk;
+            return a.id - b.id;
+        };
+
+        const list = document.getElementById('builder-collection-list');
+        const collected = state.collectedIds
+            .map(function(id) { return CARD_POOL.find(function(c) { return c.id === id; }); })
+            .filter(function(c) { return !!c; })
+            .sort(function(a, b) { return compareCards(a, b, sortMode); });
+
+        list.innerHTML = collected.map(function(card) {
+            const isSelected = builderState.selectedIds.indexOf(card.id) > -1;
+            return (
+                '<div class="collection-item" onclick="toggleBuilderCard(' + card.id + ')">' +
+                    createCardHTML(card, true, isSelected, false) +
+                '</div>'
+            );
+        }).join('');
+    }
+
+    console.log("Gacha and Collection Logic Defined");
+    // --- Battle Logic V2 ---
+    const battleArena = document.getElementById('battle-arena');
+    const battleLobby = document.getElementById('battle-lobby-layer');
+    const battleDeckSel = document.getElementById('battle-deck-select-layer');
+    let currentBattleMode = 'normal'; // normal | advanced
+
+    function checkBattleReady() {
+        // Reset to lobby whenever entering Battle view
+        battleArena.classList.add('hidden');
+        battleDeckSel.classList.add('hidden');
+        battleDeckSel.classList.remove('flex');
+        battleLobby.classList.remove('hidden');
+        battleLobby.classList.add('flex');
+    }
+
+    window.openBattleDeckSelection = function(mode = 'normal') {
+        currentBattleMode = mode;
+        if (state.decks.length === 0) {
+            showSystemModal('你需要先建立至少一套牌庫才能進行對戰！', '提示', '🃏');
+            switchView('deck');
+            return;
+        }
+        
+        battleLobby.classList.add('hidden');
+        battleLobby.classList.remove('flex');
+        battleDeckSel.classList.remove('hidden');
+        battleDeckSel.classList.add('flex');
+        
+        const container = document.getElementById('battle-decks-container');
+        container.innerHTML = state.decks.map(function(deck, idx) {
+            let totalHp=0, totalAtk=0, totalSpd=0, totalDiscard=0;
+            deck.cards.forEach(function(id) {
+                const c = CARD_POOL.find(function(c) { return c.id === id; });
+                if (c) { totalHp+=c.hp; totalAtk+=c.atk; totalSpd+=c.spd; totalDiscard+=c.discard; }
+            });
+            const avgHp = Math.round(totalHp/10);
+            const avgAtk = Math.round(totalAtk/10);
+            const avgSpd = Math.round(totalSpd/10);
+            const avgDiscard = Math.round(totalDiscard/10);
+
+            return (
+                '<div class="bg-slate-800 rounded-xl p-4 shadow-lg border border-slate-700 cursor-pointer hover:border-red-500 hover:scale-[1.02] transition-all" onclick="initBattle(\'' + deck.id + '\')">' +
+                    '<div class="flex justify-between items-center mb-3">' +
+                        '<h3 class="font-bold text-lg text-white">' + deck.name + '</h3>' +
+                        '<div class="text-xs bg-red-600 px-2 py-1 rounded font-bold">出戰</div>' +
+                    '</div>' +
+                    '<div class="flex justify-between px-2 py-1 bg-slate-900/50 rounded text-xs font-mono font-bold">' +
+                        '<span class="text-green-400">HP ' + avgHp + '</span>' +
+                        '<span class="text-red-400">ATK ' + avgAtk + '</span>' +
+                        '<span class="text-yellow-400">SPD ' + avgSpd + '</span>' +
+                        '<span class="text-purple-400">DIS ' + avgDiscard + '</span>' +
+                    '</div>' +
+                '</div>'
+            );
+        }).join('');
+    };
+
+    window.closeBattleDeckSelection = function() {
+        battleDeckSel.classList.add('hidden');
+        battleDeckSel.classList.remove('flex');
+        battleLobby.classList.remove('hidden');
+        battleLobby.classList.add('flex');
+    };
+
+    window.exitBattle = function() {
+        showSystemConfirm(
+            '確定要投降並退出對戰嗎？',
+            '投降',
+            '🏳️',
+            function() {
+                // Count as a loss
+                state.playerParams.totalBattles++;
+                saveState();
+                checkBattleReady(); // Returns to lobby
+            }
+        );
+    };
+
+    window.initBattle = function(deckId, mode) {
+        if (mode) currentBattleMode = mode;
+        if (CARD_POOL.length === 0) return;
+        
+        const selectedDeck = state.decks.find(function(d) { return d.id === deckId; });
+        if (!selectedDeck) return;
+
+        battleDeckSel.classList.add('hidden');
+        battleDeckSel.classList.remove('flex');
+        battleArena.classList.remove('hidden');
+        battleArena.classList.add('flex');
+        
+        // Reset UI elements from previous battle
+        const pWrapper = document.getElementById('player-card-wrapper');
+        const eWrapper = document.getElementById('enemy-card-wrapper');
+        
+        document.getElementById('player-active-card').innerHTML = '請從手牌選一張';
+        document.getElementById('enemy-active-card').innerHTML = '等待出牌';
+        document.getElementById('player-hp-bar-container').classList.add('hidden');
+        document.getElementById('enemy-hp-bar-container').classList.add('hidden');
+        document.getElementById('player-hp-text').innerText = '';
+        document.getElementById('enemy-hp-text').innerText = '';
+        document.getElementById('round-result-display').classList.remove('show');
+        document.getElementById('result-modal').classList.add('hidden');
+        
+        // Clear any leftover animations
+        pWrapper.classList.remove('animate-attack-p', 'animate-attack-p-crit', 'animate-shake', 'animate-shake-heavy');
+        eWrapper.classList.remove('animate-attack-e', 'animate-attack-e-crit', 'animate-shake', 'animate-shake-heavy');
+        
+        // Setup battle state
+        const playerDeckCards = selectedDeck.cards.map(function(id) {
+            const found = CARD_POOL.find(function(c) { return c.id === id; });
+            return Object.assign({}, found);
+        });
+        const enemyDeckCards = (currentBattleMode === 'advanced')
+            ? buildAdvancedEnemyDeckCards()
+            : buildNormalEnemyDeckCards();
+
+        if (currentBattleMode === 'advanced') {
+            try {
+                const counts = enemyDeckCards.reduce(function(acc, c) {
+                    acc[c.rarity] = (acc[c.rarity] || 0) + 1;
+                    return acc;
+                }, {});
+                console.log('[Battle] Advanced enemy deck rarity counts:', counts);
+            } catch (e) {
+                console.warn('[Battle] Failed to log advanced deck counts', e);
+            }
+        }
+
+        state.battle = {
+            player: { deck: shuffle(playerDeckCards), hand: [], discard: [], selectedForDiscard: [] },
+            enemy: { deck: shuffle(enemyDeckCards), hand: [], discard: [] },
+            turn: 1,
+            log: ["對戰開始！雙方抽牌。"],
+            status: 'waiting_player', // waiting_player, battling, discarding_player, finished
+            discardCost: 0
+        };
+
+        // Initial Draw
+        drawCards(state.battle.player);
+        drawCards(state.battle.enemy);
+        
+        updateBattleUI();
+    };
+
+    function shuffle(array) {
+        // Note: this mutates the array (expected in this codebase)
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random()*(i + 1));
+            const temp = array[i];
+            array[i] = array[j];
+            array[j] = temp;
+        }
+        return array;
+    }
+
+    function rarityOrderValue(rarity) {
+        // Lower value = lower rarity = will be discarded first
+        // C -> UC -> R -> SR -> SSR -> UR
+        if (rarity === 'C') return 0;
+        if (rarity === 'UC') return 1;
+        if (rarity === 'R') return 2;
+        if (rarity === 'SR') return 3;
+        if (rarity === 'SSR') return 4;
+        if (rarity === 'UR') return 5;
+        return 999;
+    }
+
+    function sortEnemyHandForDiscard(enemyHand) {
+        // Priority:
+        // 1) discard lower rarity first (to preserve rare cards)
+        // 2) within same rarity, discard higher discard value first (to pay cost efficiently)
+        enemyHand.sort(function(a, b) {
+            const ra = rarityOrderValue(a.rarity);
+            const rb = rarityOrderValue(b.rarity);
+            if (ra !== rb) return ra - rb;
+            return (b.discard || 0) - (a.discard || 0);
+        });
+    }
+
+    function drawCards(side) {
+        while (side.hand.length < 4 && side.deck.length > 0) {
+            side.hand.push(side.deck.pop());
+        }
+    }
+
+    function updateBattleUI() {
+        const b = state.battle;
+        document.getElementById('player-deck-count').innerText = b.player.deck.length;
+        document.getElementById('enemy-deck-count').innerText = b.enemy.deck.length;
+        document.getElementById('enemy-hand-count').innerText = b.enemy.hand.length;
+        document.getElementById('turn-indicator').innerText = "回合 " + b.turn;
+
+        // Render Player Hand
+        const handEl = document.getElementById('player-hand');
+        handEl.innerHTML = b.player.hand.map(function(card, idx) {
+            const isSelected = b.status === 'discarding_player' && b.player.selectedForDiscard.indexOf(idx) > -1;
+            return (
+                '<div class="hand-card ' + (isSelected ? "selected" : "") + '" onclick="selectCard(' + idx + ')">' +
+                    createCardHTML(card, true) +
+                '</div>'
+            );
+        }).join('');
+
+        // Discard Controls
+        const discardControls = document.getElementById('discard-controls');
+        if (b.status === 'discarding_player') {
+            discardControls.classList.remove('hidden');
+            const currentSum = b.player.selectedForDiscard.reduce(function(sum, idx) { return sum + b.player.hand[idx].discard; }, 0);
+            document.getElementById('current-discard-sum').innerText = currentSum;
+            document.getElementById('target-discard-sum').innerText = b.discardCost;
+            document.getElementById('btn-confirm-discard').disabled = currentSum < b.discardCost;
+        } else {
+            discardControls.classList.add('hidden');
+        }
+    }
+
+    window.selectCard = function(handIdx) {
+        const b = state.battle;
+        if (b.status === 'waiting_player') {
+            const playerCard = b.player.hand.splice(handIdx, 1)[0];
+            
+            // Computer picks a card (random)
+            const enemyIdx = Math.floor(Math.random() * b.enemy.hand.length);
+            const enemyCard = b.enemy.hand.splice(enemyIdx, 1)[0];
+
+            executeBattle(playerCard, enemyCard);
+        } else if (b.status === 'discarding_player') {
+            const selected = b.player.selectedForDiscard;
+            const index = selected.indexOf(handIdx);
+            if (index > -1) {
+                selected.splice(index, 1);
+            } else {
+                selected.push(handIdx);
+            }
+            updateBattleUI();
+        }
+    };
+ 
+    document.getElementById('btn-confirm-discard').addEventListener('click', function() {
+        var b = state.battle;
+        if (b.status !== 'discarding_player') return;
+
+        // Sort indices descending to splice without shifting issues
+        const selected = [].concat(b.player.selectedForDiscard).sort(function(a, b) { return b - a; });
+        selected.forEach(function(idx) {
+            b.player.discard.push(b.player.hand.splice(idx, 1)[0]);
+        });
+        
+        b.player.selectedForDiscard = [];
+        
+        // Resume battle flow
+        finishRound();
+    });
+
+    async function executeBattle(pCard, eCard) {
+        state.battle.status = 'battling';
+        const b = state.battle;
+        
+        // Show active cards
+        const pActiveEl = document.getElementById('player-active-card');
+        const eActiveEl = document.getElementById('enemy-active-card');
+        const pWrapper = document.getElementById('player-card-wrapper');
+        const eWrapper = document.getElementById('enemy-card-wrapper');
+        const pHPBar = document.getElementById('player-hp-bar');
+        const eHPBar = document.getElementById('enemy-hp-bar');
+        const pHPText = document.getElementById('player-hp-text');
+        const eHPText = document.getElementById('enemy-hp-text');
+        
+        pActiveEl.innerHTML = createCardHTML(pCard);
+        eActiveEl.innerHTML = createCardHTML(eCard);
+        
+        // Reset HP bars
+        document.getElementById('player-hp-bar-container').classList.remove('hidden');
+        document.getElementById('enemy-hp-bar-container').classList.remove('hidden');
+        updateHPBar(pHPBar, pCard.hp, pCard.hp);
+        updateHPBar(eHPBar, eCard.hp, eCard.hp);
+        pHPText.innerText = "HP: " + pCard.hp;
+        eHPText.innerText = "HP: " + eCard.hp;
+
+        addLog("你派出了 " + pCard.name + "！");
+        addLog("電腦派出了 " + eCard.name + "！");
+        updateBattleUI();
+ 
+        await sleep(1000);
+ 
+        // Battle logic
+        var pHP = pCard.hp;
+        var eHP = eCard.hp;
+        var pMaxHP = pCard.hp;
+        var eMaxHP = eCard.hp;
+        
+        // Speed check: Slower cards attack first per user request
+        var attacker;
+        if (pCard.spd < eCard.spd) {
+            attacker = 'player';
+            addLog(pCard.name + " 速度較慢，發動先制攻擊！");
+        } else if (pCard.spd > eCard.spd) {
+            attacker = 'enemy';
+            addLog(eCard.name + " 速度較慢，發動先制攻擊！");
+        } else {
+            // Equal speed, random
+            attacker = Math.random() < 0.5 ? 'player' : 'enemy';
+            addLog("速度相同！隨機由 " + (attacker === 'player' ? pCard.name : eCard.name) + " 開始。");
+        }
+ 
+        function showDamage(wrapper, amount, isCrit) {
+            var popup = document.createElement('div');
+            popup.className = "damage-popup " + (isCrit ? "crit" : "");
+            popup.innerText = "-" + amount;
+            wrapper.appendChild(popup);
+            
+            if (isCrit) {
+                var label = document.createElement('div');
+                label.className = 'crit-label';
+                label.innerText = 'CRITICAL';
+                wrapper.appendChild(label);
+                setTimeout(function() { label.remove(); }, 600);
+            }
+            
+            setTimeout(function() { popup.remove(); }, 800);
+        }
+ 
+        while (pHP > 0 && eHP > 0) {
+            if (attacker === 'player') {
+                // Player attacks
+                var critRate = state.cardCritRates[pCard.id] || 0;
+                var isCrit = Math.random() < (critRate / 100);
+                var damage = isCrit ? pCard.atk * 2 : pCard.atk;
+ 
+                if (isCrit) {
+                    pWrapper.classList.add('animate-attack-p-crit');
+                    addLog("🔥 爆擊！" + pCard.name + " 發動強力攻擊！");
+                } else {
+                    pWrapper.classList.add('animate-attack-p');
+                }
+                
+                await sleep(200);
+                eHP -= damage;
+                eWrapper.classList.add(isCrit ? 'animate-shake-heavy' : 'animate-shake');
+                showDamage(eWrapper, damage, isCrit);
+                
+                updateHPBar(eHPBar, eHP, eMaxHP);
+                eHPText.innerText = "HP: " + Math.max(0, eHP);
+                addLog(pCard.name + " 攻擊，造成 " + damage + " 傷害！");
+                
+                await sleep(200);
+                pWrapper.classList.remove('animate-attack-p', 'animate-attack-p-crit');
+                eWrapper.classList.remove('animate-shake', 'animate-shake-heavy');
+                attacker = 'enemy';
+            } else {
+                // Enemy attacks
+                var isCrit = Math.random() < 0.05; // Base 5% crit for enemy
+                var damage = isCrit ? eCard.atk * 2 : eCard.atk;
+                
+                if (isCrit) {
+                    eWrapper.classList.add('animate-attack-e-crit');
+                    addLog("⚠️ 警告！對手發動爆擊！");
+                } else {
+                    eWrapper.classList.add('animate-attack-e');
+                }
+                
+                await sleep(200);
+                pHP -= damage;
+                pWrapper.classList.add(isCrit ? 'animate-shake-heavy' : 'animate-shake');
+                showDamage(pWrapper, damage, isCrit);
+                
+                updateHPBar(pHPBar, pHP, pMaxHP);
+                pHPText.innerText = "HP: " + Math.max(0, pHP);
+                addLog(eCard.name + " 攻擊，造成 " + damage + " 傷害！");
+                
+                await sleep(200);
+                eWrapper.classList.remove('animate-attack-e', 'animate-attack-e-crit');
+                pWrapper.classList.remove('animate-shake', 'animate-shake-heavy');
+                attacker = 'player';
+            }
+            updateBattleUI();
+            await sleep(600);
+        }
+
+        function updateHPBar(bar, current, max) {
+            const pct = Math.max(0, (current / max) * 100);
+            bar.style.width = pct + '%';
+            bar.classList.remove('warning', 'danger');
+            if (pct < 25) bar.classList.add('danger');
+            else if (pct < 50) bar.classList.add('warning');
+        }
+
+        // Round Result
+        let winner;
+        const resultDisplay = document.getElementById('round-result-display');
+        const winnerText = document.getElementById('round-winner-text');
+        const discardText = document.getElementById('round-discard-text');
+
+        if (pHP > 0) {
+            winner = 'player';
+            const discardCost = pCard.discard;
+            
+            winnerText.innerText = '你贏了！';
+            winnerText.className = 'text-xl font-bold text-green-400 mb-1';
+            discardText.innerText = "對手棄掉總和 " + discardCost + " 的牌";
+            resultDisplay.classList.add('show');
+
+            // Computer auto-discard logic
+            await sleep(1000);
+            let currentSum = 0;
+            while (currentSum < discardCost && b.enemy.hand.length > 0) {
+                // Prefer discarding lower rarity first; within same rarity use higher discard value
+                sortEnemyHandForDiscard(b.enemy.hand);
+                var discarded = b.enemy.hand.shift();
+                currentSum += discarded.discard;
+                b.enemy.discard.push(discarded);
+            }
+
+            if (currentSum < discardCost) {
+                await sleep(1500);
+                resultDisplay.classList.remove('show');
+                endGame('player', '電腦手牌不足以支付棄牌，你獲得了勝利！');
+                return;
+            }
+        } else {
+            winner = 'enemy';
+            const discardCost = eCard.discard;
+
+            winnerText.innerText = '戰敗...';
+            winnerText.className = 'text-xl font-bold text-red-400 mb-1';
+            discardText.innerText = "你棄掉總和 " + discardCost + " 的牌";
+            resultDisplay.classList.add('show');
+
+            // Check if player can even pay
+            const totalPlayerDiscardValue = b.player.hand.reduce(function(sum, c) { return sum + c.discard; }, 0);
+            if (totalPlayerDiscardValue < discardCost) {
+                await sleep(1500);
+                resultDisplay.classList.remove('show');
+                endGame('enemy', '你的手牌不足以支付棄牌，對戰失敗。');
+                return;
+            }
+
+            // Wait for player to select cards
+            b.status = 'discarding_player';
+            b.discardCost = discardCost;
+            b.player.selectedForDiscard = [];
+            
+            // Store cards for cleanup later (so finishRound can discard them)
+            b.currentPCard = pCard;
+            b.currentECard = eCard;
+            
+            updateBattleUI();
+            return; // Stop here, wait for confirm button
+        }
+
+        // Cleanup round (only if player won, if player lost it's handled in finishRound)
+        b.player.discard.push(pCard);
+        b.enemy.discard.push(eCard);
+        
+        await sleep(1500);
+        resultDisplay.classList.remove('show');
+        
+        finishRound();
+    }
+
+    async function finishRound() {
+        const b = state.battle;
+
+        document.getElementById('round-result-display').classList.remove('show');
+
+        // If player lost, we deferred discarding current played cards until now.
+        // Enemy SHOULD NOT pay discard cost when it wins.
+        if (b.status === 'discarding_player') {
+            // Move played cards to discard pile
+            if (b.currentPCard) b.player.discard.push(b.currentPCard);
+            if (b.currentECard) b.enemy.discard.push(b.currentECard);
+            b.currentPCard = null;
+            b.currentECard = null;
+            b.discardCost = 0;
+        }
+
+        // Draw cards for next turn
+        drawCards(b.player);
+        drawCards(b.enemy);
+        
+        if (b.player.hand.length === 0) {
+            endGame('enemy', '你已無手牌可抽，對戰失敗。');
+            return;
+        }
+        if (b.enemy.hand.length === 0) {
+            endGame('player', '電腦已無手牌可抽，你獲得了勝利！');
+            return;
+        }
+
+        b.turn++;
+        b.status = 'waiting_player';
+        
+        // FIX: Clear play area so it's fresh for next round
+        document.getElementById('player-active-card').innerHTML = '請從手牌選一張';
+        document.getElementById('enemy-active-card').innerHTML = '等待出牌';
+        document.getElementById('player-hp-bar-container').classList.add('hidden');
+        document.getElementById('enemy-hp-bar-container').classList.add('hidden');
+        document.getElementById('player-hp-text').innerText = '';
+        document.getElementById('enemy-hp-text').innerText = '';
+
+        addLog("--- 第 " + b.turn + " 回合 ---");
+        updateBattleUI();
+    }
+
+    function addLog(msg) {
+        state.battle.log.push(msg);
+    }
+
+    function sleep(ms) {
+        return new Promise(function(resolve) { setTimeout(resolve, ms); });
+    }
+
+    function endGame(winner, reason) {
+        state.battle.status = 'finished';
+        const modal = document.getElementById('result-modal');
+        const emoji = document.getElementById('result-emoji');
+        const title = document.getElementById('result-title');
+        const desc = document.getElementById('result-desc');
+
+        if (winner === 'player') {
+            emoji.innerText = '🏆';
+            title.innerText = '你贏了！';
+            title.className = 'text-4xl font-bold mb-4 drop-shadow-md text-white';
+            const btn = document.getElementById('btn-close-result');
+            btn.className = 'px-10 py-4 bg-yellow-600 hover:bg-yellow-500 active:scale-95 rounded-xl font-bold text-xl shadow-[0_0_20px_rgba(202,138,4,0.5)] transition-all';
+            
+            state.playerParams.wins++;
+        } else {
+            emoji.innerText = '💀';
+            title.innerText = '敗北！';
+            title.className = 'text-4xl font-bold mb-4 drop-shadow-md text-red-500';
+            const btn = document.getElementById('btn-close-result');
+            btn.className = 'px-10 py-4 bg-slate-700 hover:bg-slate-600 active:scale-95 rounded-xl font-bold text-xl transition-all text-white';
+        }
+        
+        state.playerParams.totalBattles++;
+        saveState();
+        
+        desc.innerText = reason;
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+
+    document.getElementById('btn-close-result').addEventListener('click', function() {
+        document.getElementById('result-modal').classList.add('hidden');
+        document.getElementById('result-modal').classList.remove('flex');
+        checkBattleReady();
+    });
+
+    console.log("Battle Logic Defined. Ready for Init.");
+    // --- Init ---
+    function checkDailyRefill() {
+        try {
+            const today = new Date().toLocaleDateString('zh-TW');
+            const params = state.playerParams;
+            if (!params.lastLoginDate) {
+                // First time or legacy user initialization
+                params.lastLoginDate = today;
+                // If brand new, packs is already 8 from default
+                saveState();
+            } else if (params.lastLoginDate !== today) {
+                // Subsequent daily login: +4 packs
+                params.packs += 4;
+                params.lastLoginDate = today;
+                saveState();
+                console.log("Daily login reward: +4 packs!");
+            }
+        } catch (e) {
+            console.error("Daily refill check failed:", e);
+        }
+    }
+
+    function init() {
+        console.log("Game Initialization Started...");
+        try {
+            if (window.CARD_DATA) {
+                CARD_POOL = window.CARD_DATA;
+                buildRarityIndex();
+                console.log("Cards Loaded from window.CARD_DATA:", CARD_POOL.length);
+                const loadingEl = document.getElementById('data-loading-status');
+                if (loadingEl) loadingEl.classList.add('hidden');
+                
+                // Process daily refill before showing UI
+                checkDailyRefill();
+
+                // Ensure initial UI counters are correct
+                updateHomeView();
+                updateGachaView();
+                switchView('home');
+                console.log("Initial View Set to Home");
+            } else {
+                console.error('window.CARD_DATA is not defined. Ensure cards.js is loaded.');
+                showSystemModal('無法載入卡片資料，請確認 cards.js 檔案存在並已正確載入。', '載入失敗', '❌');
+            }
+        } catch (e) {
+            console.error("Initialization Error:", e);
+        }
+    }
+
+    init();
+</script>
+
+</body>
+</html>

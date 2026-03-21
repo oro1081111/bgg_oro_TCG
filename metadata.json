@@ -1,0 +1,5 @@
+{
+  "name": "Pocket Monster TCG",
+  "description": "A mobile-first card collection and battle game inspired by Pokémon TCG Pocket.",
+  "requestFramePermissions": []
+}
