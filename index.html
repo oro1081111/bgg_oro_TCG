@@ -852,18 +852,22 @@
                 <input id="builder-deck-name" type="text" class="bg-slate-800 text-white px-2 py-1 rounded text-center w-32 outline-none" placeholder="牌庫名稱">
                 <button id="btn-save-deck" onclick="saveDeckBuilder()" class="text-green-400 font-bold opacity-50 cursor-not-allowed">儲存</button>
             </div>
-            <div class="flex justify-between bg-slate-900 rounded p-2 text-xs mb-2">
-                <div class="text-center"><span class="block text-slate-500">已選</span><span id="builder-count" class="font-bold text-white">0/10</span></div>
-                <div class="text-center"><span class="block text-slate-500">均 HP</span><span id="avg-hp" class="font-bold text-green-400">0</span></div>
-                <div class="text-center"><span class="block text-slate-500">均 ATK</span><span id="avg-atk" class="font-bold text-red-400">0</span></div>
-                <div class="text-center"><span class="block text-slate-500">均 SPD</span><span id="avg-spd" class="font-bold text-yellow-400">0</span></div>
-                <div class="text-center"><span class="block text-slate-500">均 DIS</span><span id="avg-discard" class="font-bold text-purple-400">0</span></div>
+            <div class="flex justify-between bg-slate-900 rounded p-2 text-[10px] mb-2 gap-1">
+                <div class="text-center whitespace-nowrap px-1"><span class="block text-slate-500">已選</span><span id="builder-count" class="font-bold text-white">0/9~12</span></div>
+                <div class="text-center whitespace-nowrap px-1"><span class="block text-slate-500">點數</span><span id="builder-points" class="font-bold text-white">0/32</span></div>
+                <div class="text-center whitespace-nowrap px-1"><span class="block text-slate-500">均 HP</span><span id="avg-hp" class="font-bold text-green-400">0</span></div>
+                <div class="text-center whitespace-nowrap px-1"><span class="block text-slate-500">均 ATK</span><span id="avg-atk" class="font-bold text-red-400">0</span></div>
+                <div class="text-center whitespace-nowrap px-1"><span class="block text-slate-500">均 SPD</span><span id="avg-spd" class="font-bold text-yellow-400">0</span></div>
+                <div class="text-center whitespace-nowrap px-1"><span class="block text-slate-500">均 DIS</span><span id="avg-discard" class="font-bold text-purple-400">0</span></div>
             </div>
             <select id="builder-sort" class="w-full bg-slate-800 p-2 mb-2 rounded text-white text-xs">
-                <option value="id">依 ID 排序</option>
-                <option value="hp">依 HP 排序</option>
-                <option value="atk">依 攻擊力 排序</option>
-                <option value="spd">依 速度 排序</option>
+                <option value="id">按稀有度 (BGG排名) 排序</option>
+                <option value="hp">按 HP 排序</option>
+                <option value="atk">按攻擊排序</option>
+                <option value="spd">按速度 (由小到大)</option>
+                <option value="discard">按棄牌值排序</option>
+                <option value="critRate">按爆集率排序</option>
+                <option value="favorite">⭐ 優先顯示我的最愛</option>
             </select>
             <div id="builder-collection-list" class="collection-grid flex-1 overflow-y-auto pb-10"></div>
         </div>
@@ -1041,7 +1045,7 @@
 
             <div class="rules-section">
                 <div class="rules-title"><span>1</span> 牌組準備</div>
-                <p>每位玩家需建立一套包含 <span class="text-white font-bold underline decoration-blue-500/50">10 張卡片</span> 的牌庫。在「牌庫」頁面可以自由挑選已擁有的卡片進行編組。</p>
+                <p>每位玩家需建立一套包含 <span class="text-white font-bold underline decoration-blue-500/50">9~12 張卡片</span> 的牌庫，且稀有點數總和不得超過 <span class="text-yellow-400 font-bold">32 點</span>（C:1, UC:2, R:3, SR:4, SSR:5, UR:6）。在「牌庫」頁面可以自由挑選已擁有的卡片進行編組。</p>
             </div>
 
             <div class="rules-section">
@@ -1247,11 +1251,28 @@
     }
 
     function buildNormalEnemyDeckCards() {
+        const targetSize = Math.floor(Math.random() * 4) + 9; // 9~12
         const enemyDeckCards = [];
         const pool = [].concat(CARD_POOL);
-        for (let i = 0; i < 10; i++) {
-            const idx = Math.floor(Math.random() * pool.length);
-            enemyDeckCards.push(Object.assign({}, pool.splice(idx, 1)[0]));
+        let currentPoints = 0;
+        const rarityMap = { 'C': 1, 'UC': 2, 'R': 3, 'SR': 4, 'SSR': 5, 'UR': 6 };
+        
+        // Fisher-Yates shuffle the pool
+        for (let i = pool.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            const temp = pool[i];
+            pool[i] = pool[j];
+            pool[j] = temp;
+        }
+
+        for (let i = 0; i < pool.length; i++) {
+            if (enemyDeckCards.length >= targetSize) break;
+            const card = pool[i];
+            const p = rarityMap[card.rarity] || 0;
+            if (currentPoints + p <= 32) {
+                enemyDeckCards.push(Object.assign({}, card));
+                currentPoints += p;
+            }
         }
         return enemyDeckCards;
     }
@@ -1908,21 +1929,27 @@
                 const c = CARD_POOL.find(function(c) { return c.id === id; });
                 if (c) { totalHp+=c.hp; totalAtk+=c.atk; totalSpd+=c.spd; totalDiscard+=c.discard; }
             });
-            const avgHp = Math.round(totalHp/10);
-            const avgAtk = Math.round(totalAtk/10);
-            const avgSpd = Math.round(totalSpd/10);
-            const avgDiscard = Math.round(totalDiscard/10);
+            const div = Math.max(1, deck.cards.length);
+            const avgHp = Math.round(totalHp/div);
+            const avgAtk = Math.round(totalAtk/div);
+            const avgSpd = Math.round(totalSpd/div);
+            const avgDiscard = Math.round(totalDiscard/div);
 
+            const points = calculateDeckPoints(deck.cards);
             return (
                 '<div class="bg-slate-800 rounded-xl p-4 shadow-lg border border-slate-700">' +
-                    '<div class="flex justify-between items-center mb-3">' +
+                    '<div class="flex justify-between items-center mb-2">' +
                         '<h3 class="font-bold text-lg text-white">' + deck.name + ' <span class="text-xs font-normal text-slate-400 bg-slate-900 px-2 py-1 rounded">牌庫 ' + (idx+1) + '</span></h3>' +
                         '<div class="flex gap-2">' +
                             '<button onclick="editDeck(\'' + deck.id + '\')" class="px-3 py-1 bg-slate-700 hover:bg-slate-600 active:scale-95 rounded text-xs font-bold transition-all text-white">編輯</button>' +
                             '<button onclick="deleteDeck(\'' + deck.id + '\')" class="px-3 py-1 bg-red-900/50 hover:bg-red-800/80 active:scale-95 text-red-200 rounded text-xs font-bold transition-all">刪除</button>' +
                         '</div>' +
                     '</div>' +
-                    '<div class="flex justify-between px-2 py-1 bg-slate-900/50 rounded text-xs font-mono font-bold">' +
+                    '<div class="text-xs text-slate-400 mb-2 font-bold bg-slate-900/50 inline-block px-2 py-1 rounded w-full flex justify-between box-border">' +
+                        '<span>🃏 數量: <span class="text-white">' + deck.cards.length + ' / 9~12</span></span>' +
+                        '<span>💎 點數: <span class="' + (points>32 ? 'text-red-400' : 'text-blue-300') + '">' + points + ' / 32</span></span>' +
+                    '</div>' +
+                    '<div class="flex justify-between px-2 py-1 bg-slate-900/50 rounded text-xs font-mono font-bold mt-2">' +
                         '<span class="text-green-400">HP ' + avgHp + '</span>' +
                         '<span class="text-red-400">ATK ' + avgAtk + '</span>' +
                         '<span class="text-yellow-400">SPD ' + avgSpd + '</span>' +
@@ -1991,8 +2018,23 @@
         renderDecks();
     }
 
+    const rarityPointsMap = { 'C': 1, 'UC': 2, 'R': 3, 'SR': 4, 'SSR': 5, 'UR': 6 };
+    function calculateDeckPoints(cardIds) {
+        let points = 0;
+        cardIds.forEach(function(id) {
+            const c = CARD_POOL.find(function(c) { return c.id === id; });
+            if (c && rarityPointsMap[c.rarity]) points += rarityPointsMap[c.rarity];
+        });
+        return points;
+    }
+
     window.saveDeckBuilder = function() {
-        if (builderState.selectedIds.length !== 10) return;
+        const count = builderState.selectedIds.length;
+        if (count < 9 || count > 12) return;
+        if (calculateDeckPoints(builderState.selectedIds) > 32) {
+            showSystemModal('牌庫點數總和不得超過 32 點！', '提示', '🎴');
+            return;
+        }
         
         const name = document.getElementById('builder-deck-name').value || '未命名牌庫';
         
@@ -2025,8 +2067,8 @@
         if (idx > -1) {
             builderState.selectedIds.splice(idx, 1);
         } else {
-            if (builderState.selectedIds.length >= 10) {
-                showSystemModal('已經選滿 10 張牌！', '提示', '🎴');
+            if (builderState.selectedIds.length >= 12) {
+                showSystemModal('最多只能選擇 12 張牌！', '提示', '🎴');
                 return;
             }
             builderState.selectedIds.push(cardId);
@@ -2039,21 +2081,36 @@
     });
 
     function renderDeckBuilder() {
-        document.getElementById('builder-count').innerText = builderState.selectedIds.length;
+        const count = builderState.selectedIds.length;
+        document.getElementById('builder-count').innerText = count + "/9~12";
+        
+        const totalPoints = calculateDeckPoints(builderState.selectedIds);
+        const pointsEl = document.getElementById('builder-points');
+        if (pointsEl) {
+            pointsEl.innerText = totalPoints + "/32";
+            if (totalPoints > 32) {
+                pointsEl.classList.remove('text-white');
+                pointsEl.classList.add('text-red-400');
+            } else {
+                pointsEl.classList.remove('text-red-400');
+                pointsEl.classList.add('text-white');
+            }
+        }
         
         // Calculate averages
+        const div = Math.max(1, count);
         let thp=0, tatk=0, tspd=0, tdis=0;
         builderState.selectedIds.forEach(function(id) {
             const c = CARD_POOL.find(function(c) { return c.id === id; });
             if (c) { thp+=c.hp; tatk+=c.atk; tspd+=c.spd; tdis+=c.discard; }
         });
-        document.getElementById('avg-hp').innerText = Math.round(thp/10) || 0;
-        document.getElementById('avg-atk').innerText = Math.round(tatk/10) || 0;
-        document.getElementById('avg-spd').innerText = Math.round(tspd/10) || 0;
-        document.getElementById('avg-discard').innerText = Math.round(tdis/10) || 0;
+        document.getElementById('avg-hp').innerText = Math.round(thp/div) || 0;
+        document.getElementById('avg-atk').innerText = Math.round(tatk/div) || 0;
+        document.getElementById('avg-spd').innerText = Math.round(tspd/div) || 0;
+        document.getElementById('avg-discard').innerText = Math.round(tdis/div) || 0;
 
         const saveBtn = document.getElementById('btn-save-deck');
-        if (builderState.selectedIds.length === 10) {
+        if (count >= 9 && count <= 12 && totalPoints <= 32) {
             saveBtn.classList.remove('opacity-50', 'cursor-not-allowed');
             saveBtn.classList.add('shadow-[0_0_15px_rgba(34,197,94,0.5)]');
         } else {
@@ -2063,16 +2120,37 @@
 
         const sortMode = document.getElementById('builder-sort').value;
         const compareCards = function(a, b, primaryKey) {
+            const getVal = function(card, key) {
+                if (key === 'critRate') return state.cardCritRates[card.id] || 0;
+                return card[key];
+            };
+
             if (primaryKey === 'favorite') {
-                const favA = state.favorites.indexOf(a.id) > -1;
-                const favB = state.favorites.indexOf(b.id) > -1;
+                var favA = state.favorites.indexOf(a.id) > -1;
+                var favB = state.favorites.indexOf(b.id) > -1;
                 if (favA !== favB) return favB ? 1 : -1;
-                return a.id - b.id;
+                return a.id - b.id; // Tie-break
             }
+
             if (primaryKey === 'id') return a.id - b.id;
             if (primaryKey === 'spd') return a.spd - b.spd;
-            if (primaryKey === 'hp') return b.hp - a.hp;
-            if (primaryKey === 'atk') return b.atk - a.atk;
+
+            if (primaryKey !== 'id') {
+                const valA = getVal(a, primaryKey);
+                const valB = getVal(b, primaryKey);
+                if (valB !== valA) return valB - valA; 
+            }
+
+            // Tie-break
+            if (b.hp !== a.hp) return b.hp - a.hp;
+            if (b.atk !== a.atk) return b.atk - a.atk;
+            if (b.spd !== a.spd) return b.spd - a.spd;
+            if (b.discard !== a.discard) return b.discard - a.discard;
+            
+            const critA = state.cardCritRates[a.id] || 0;
+            const critB = state.cardCritRates[b.id] || 0;
+            if (critB !== critA) return critB - critA;
+
             return a.id - b.id;
         };
 
@@ -2128,18 +2206,24 @@
                 const c = CARD_POOL.find(function(c) { return c.id === id; });
                 if (c) { totalHp+=c.hp; totalAtk+=c.atk; totalSpd+=c.spd; totalDiscard+=c.discard; }
             });
-            const avgHp = Math.round(totalHp/10);
-            const avgAtk = Math.round(totalAtk/10);
-            const avgSpd = Math.round(totalSpd/10);
-            const avgDiscard = Math.round(totalDiscard/10);
+            const div = Math.max(1, deck.cards.length);
+            const avgHp = Math.round(totalHp/div);
+            const avgAtk = Math.round(totalAtk/div);
+            const avgSpd = Math.round(totalSpd/div);
+            const avgDiscard = Math.round(totalDiscard/div);
 
+            const points = calculateDeckPoints(deck.cards);
             return (
                 '<div class="bg-slate-800 rounded-xl p-4 shadow-lg border border-slate-700 cursor-pointer hover:border-red-500 hover:scale-[1.02] transition-all" onclick="initBattle(\'' + deck.id + '\')">' +
-                    '<div class="flex justify-between items-center mb-3">' +
+                    '<div class="flex justify-between items-center mb-2">' +
                         '<h3 class="font-bold text-lg text-white">' + deck.name + '</h3>' +
                         '<div class="text-xs bg-red-600 px-2 py-1 rounded font-bold">出戰</div>' +
                     '</div>' +
-                    '<div class="flex justify-between px-2 py-1 bg-slate-900/50 rounded text-xs font-mono font-bold">' +
+                    '<div class="text-xs text-slate-400 mb-2 font-bold bg-slate-900/50 inline-block px-2 py-1 rounded w-full flex justify-between box-border">' +
+                        '<span>🃏 數量: <span class="text-white">' + deck.cards.length + ' / 9~12</span></span>' +
+                        '<span>💎 點數: <span class="' + (points>32 ? 'text-red-400' : 'text-blue-300') + '">' + points + ' / 32</span></span>' +
+                    '</div>' +
+                    '<div class="flex justify-between px-2 py-1 bg-slate-900/50 rounded text-xs font-mono font-bold mt-2">' +
                         '<span class="text-green-400">HP ' + avgHp + '</span>' +
                         '<span class="text-red-400">ATK ' + avgAtk + '</span>' +
                         '<span class="text-yellow-400">SPD ' + avgSpd + '</span>' +
